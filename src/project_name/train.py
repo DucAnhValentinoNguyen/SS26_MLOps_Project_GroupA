@@ -68,7 +68,7 @@ def train(cfg: DictConfig) -> None:
 
     wandb.init(
         project="project_name",
-        config=OmegaConf.to_container(cfg),
+        config=OmegaConf.to_container(cfg, resolve=True),
     )
 
     for epoch in range(cfg.epochs):
