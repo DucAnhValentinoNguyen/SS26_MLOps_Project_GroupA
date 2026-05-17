@@ -18,6 +18,7 @@ classifiers = [
 readme = "README.md"
 requires-python = ">=3.11.0"
 dependencies = [
+    "dvc>=3.67.1",
     "fastapi==0.115.6",
     "torch==2.6.0",
     "torchvision>=0.21.0",
@@ -55,7 +56,10 @@ explicit = true
 line-length = 88
 
 [tool.ruff.lint]
-select = ["E", "F", "W"]
+select = ["E", "F", "W", "D"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
 
 [tool.coverage.run]
 omit = ["tests/*"]
