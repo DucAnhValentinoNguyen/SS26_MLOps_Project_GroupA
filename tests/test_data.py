@@ -1,3 +1,5 @@
+"""Tests for the data module."""
+
 from torch.utils.data import Dataset
 
 from project_name.data import MyDataset
