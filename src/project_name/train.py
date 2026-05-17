@@ -1,14 +1,16 @@
 """Module for training the model."""
 
+import logging
+
 import hydra
 import torch
+import wandb
 from omegaconf import DictConfig
 from torch import nn
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
 from project_name.model import Model
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +26,15 @@ def train(cfg: DictConfig) -> None:
     optimizer = torch.optim.Adam(model.parameters(), lr=cfg.lr)
     criterion = nn.CrossEntropyLoss()
 
+    wandb.init(
+        project="project_name",
+        config={
+            "lr": cfg.lr,
+            "batch_size": cfg.batch_size,
+            "epochs": cfg.epochs,
+        },
+    )
+
     for epoch in range(cfg.epochs):
         total_loss = 0.0
         for imgs, labels in dataloader:
@@ -36,10 +47,17 @@ def train(cfg: DictConfig) -> None:
 
         avg_loss = total_loss / len(dataloader)
         logger.info(f"Epoch {epoch+1}/{cfg.epochs} — loss: {avg_loss:.4f}")
+        wandb.log({"loss": avg_loss, "epoch": epoch + 1})
 
     torch.save(model.state_dict(), "models/model.pt")
+    artifact = wandb.Artifact("model", type="model")
+    artifact.add_file("models/model.pt")
+    wandb.log_artifact(artifact)
     logger.info("Model saved to models/model.pt")
+
+    wandb.finish()
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     train()
