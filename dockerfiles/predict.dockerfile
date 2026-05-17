@@ -11,4 +11,4 @@ COPY LICENSE LICENSE
 
 RUN uv sync --frozen
 
-ENTRYPOINT ["uv", "run", "train"]
+ENTRYPOINT ["uv", "run", "python", "-m", "project_name.predict"]
