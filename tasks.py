@@ -21,10 +21,10 @@ def preprocess_data(ctx: Context) -> None:
 
 
 @task
-def train(ctx, lr=0.001, epochs=10):
+def train(ctx: Context, config: str = "train") -> None:
     """Train model."""
     ctx.run(
-        f"uv run src/{PROJECT_NAME}/train.py " f"--lr {lr} --epochs {epochs}",
+        f"uv run python src/{PROJECT_NAME}/train.py --config-name {config}",
         echo=True,
         pty=not WINDOWS,
     )
