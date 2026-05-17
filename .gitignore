@@ -178,3 +178,4 @@ cython_debug/
 data/
 profile_output.prof
 profile_output.prof
+lightning_logs/
