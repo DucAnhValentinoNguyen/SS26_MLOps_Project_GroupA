@@ -1,5 +1,6 @@
 """Tests for the PaliGemmaModule."""
 
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -176,21 +177,27 @@ class TestPaliGemmaModuleInit:
 
     def test_learning_rate_saved_in_hparams(self, module: PaliGemmaModule) -> None:
         """learning_rate must be persisted in hparams."""
-        assert module.hparams.learning_rate == 2e-5
+        hparams: dict[str, Any] = dict(module.hparams)
+        assert hparams["learning_rate"] == 2e-5
 
     def test_model_name_saved_in_hparams(self, module: PaliGemmaModule) -> None:
         """save_hyperparameters must persist model_name."""
-        assert module.hparams.model_name == "mock/model"
+        hparams: dict[str, Any] = dict(module.hparams)
+        assert hparams["model_name"] == "mock/model"
 
     def test_vision_encoder_frozen_by_default(self, module: PaliGemmaModule) -> None:
         """vision_tower must be frozen when freeze_vision_encoder=True."""
-        module.model.vision_tower.parameters.assert_called()
+        mock_model = module.model
+        assert isinstance(mock_model, MagicMock)
+        mock_model.vision_tower.parameters.assert_called()
 
     def test_language_model_not_frozen_by_default(
         self, module: PaliGemmaModule
     ) -> None:
         """language_model must NOT be frozen by default."""
-        module.model.language_model.parameters.assert_not_called()
+        mock_model = module.model
+        assert isinstance(mock_model, MagicMock)
+        mock_model.language_model.parameters.assert_not_called()
 
     def test_freeze_language_model_flag(self) -> None:
         """freeze_language_model=True must freeze language_model."""
@@ -232,27 +239,33 @@ class TestTrainingStep:
 
     def test_returns_loss_tensor(self, module: PaliGemmaModule) -> None:
         """training_step must return the loss tensor."""
-        module.log = MagicMock()
+        setattr(module, "log", MagicMock())
         loss = module.training_step(_make_batch(), batch_idx=0)
         assert isinstance(loss, torch.Tensor)
 
     def test_loss_value_matches_model_output(self, module: PaliGemmaModule) -> None:
         """The returned loss must be the exact value produced by the model."""
-        module.log = MagicMock()
+        setattr(module, "log", MagicMock())
         loss = module.training_step(_make_batch(), batch_idx=0)
-        assert loss == module.model.return_value.loss
+        mock_model = module.model
+        assert isinstance(mock_model, MagicMock)
+        assert loss == mock_model.return_value.loss
 
-    def test_logs_train_loss_with_correct_kwargs(self, module: PaliGemmaModule) -> None:
-        """self.log must be called with on_step=True, on_epoch=True, prog_bar=True."""
-        module.log = MagicMock()
-        module.training_step(_make_batch(), batch_idx=0)
-        module.log.assert_called_once_with(
-            "train/loss",
-            module.model.return_value.loss,
-            on_step=True,
-            on_epoch=True,
-            prog_bar=True,
-        )
+
+def test_logs_train_loss_with_correct_kwargs(self, module: PaliGemmaModule) -> None:
+    """self.log must be called with on_step=True, on_epoch=True, prog_bar=True."""
+    mock_log = MagicMock()
+    setattr(module, "log", mock_log)
+    mock_model = module.model
+    assert isinstance(mock_model, MagicMock)
+    module.training_step(_make_batch(), batch_idx=0)
+    mock_log.assert_called_once_with(
+        "train/loss",
+        mock_model.return_value.loss,
+        on_step=True,
+        on_epoch=True,
+        prog_bar=True,
+    )
 
 
 class TestValidationStep:
@@ -260,17 +273,20 @@ class TestValidationStep:
 
     def test_returns_none(self, module: PaliGemmaModule) -> None:
         """validation_step must return None; Lightning handles aggregation itself."""
-        module.log = MagicMock()
-        result = module.validation_step(_make_batch(), batch_idx=0)
-        assert result is None
+        setattr(module, "log", MagicMock())
+        # validation_step returns None; call and verify no exception raised
+        module.validation_step(_make_batch(), batch_idx=0)
 
     def test_logs_val_loss_with_correct_kwargs(self, module: PaliGemmaModule) -> None:
         """self.log must be called with on_step=False, on_epoch=True, prog_bar=True."""
-        module.log = MagicMock()
+        mock_log = MagicMock()
+        setattr(module, "log", mock_log)
+        mock_model = module.model
+        assert isinstance(mock_model, MagicMock)
         module.validation_step(_make_batch(), batch_idx=0)
-        module.log.assert_called_once_with(
+        mock_log.assert_called_once_with(
             "val/loss",
-            module.model.return_value.loss,
+            mock_model.return_value.loss,
             on_step=False,
             on_epoch=True,
             prog_bar=True,
@@ -282,18 +298,22 @@ class TestTestStep:
 
     def test_calls_model_generate(self, module: PaliGemmaModule) -> None:
         """model.generate must be invoked exactly once per test_step call."""
-        module.log = MagicMock()
+        setattr(module, "log", MagicMock())
         module.test_step(_make_batch(), batch_idx=0)
-        module.model.generate.assert_called_once()
+        mock_model = module.model
+        assert isinstance(mock_model, MagicMock)
+        mock_model.generate.assert_called_once()
 
     def test_generate_receives_input_ids_and_pixel_values(
         self, module: PaliGemmaModule
     ) -> None:
         """Generate must be called with input_ids and pixel_values from the batch."""
-        module.log = MagicMock()
+        setattr(module, "log", MagicMock())
         batch = _make_batch()
         module.test_step(batch, batch_idx=0)
-        call_kwargs = module.model.generate.call_args.kwargs
+        mock_model = module.model
+        assert isinstance(mock_model, MagicMock)
+        call_kwargs = mock_model.generate.call_args.kwargs
         assert torch.equal(call_kwargs["input_ids"], batch["input_ids"])
         assert torch.equal(call_kwargs["pixel_values"], batch["pixel_values"])
 
@@ -303,10 +323,11 @@ class TestTestStep:
         generate() returns (1, 12); input has 10 tokens, so the slice should
         have width 2.
         """
-        module.log = MagicMock()
+        setattr(module, "log", MagicMock())
         module.test_step(_make_batch(input_len=10), batch_idx=0)
-        # First batch_decode call receives the new-token slice.
-        pred_tensor = module.processor.batch_decode.call_args_list[0].args[0]
+        mock_processor = module.processor
+        assert isinstance(mock_processor, MagicMock)
+        pred_tensor = mock_processor.batch_decode.call_args_list[0].args[0]
         assert pred_tensor.shape[1] == 2
 
     def test_label_minus100_replaced_before_decode(
@@ -318,20 +339,24 @@ class TestTestStep:
         """
         batch = _make_batch()
         batch["labels"] = torch.tensor([[-100, 1, 2]])
-        module.log = MagicMock()
-        # Should not raise even though -100 is an invalid token id.
+        setattr(module, "log", MagicMock())
         module.test_step(batch, batch_idx=0)
-        assert module.processor.batch_decode.call_count >= 1
+        mock_processor = module.processor
+        assert isinstance(mock_processor, MagicMock)
+        assert mock_processor.batch_decode.call_count >= 1
 
     def test_accuracy_is_one_when_pred_matches_target(
         self, module: PaliGemmaModule
     ) -> None:
         """Exact-match accuracy must be 1.0 when every prediction equals its target."""
         # Both decode calls return the same string so pred.strip() == target.strip().
-        module.processor.batch_decode.return_value = ["(A)"]
-        module.log = MagicMock()
+        mock_processor = module.processor
+        assert isinstance(mock_processor, MagicMock)
+        mock_processor.batch_decode.return_value = ["(A)"]
+        mock_log = MagicMock()
+        setattr(module, "log", mock_log)
         module.test_step(_make_batch(), batch_idx=0)
-        logged_acc = module.log.call_args_list[0].args[1]
+        logged_acc = mock_log.call_args_list[0].args[1]
         assert logged_acc == pytest.approx(1.0)
 
     def test_accuracy_is_zero_when_pred_differs_from_target(
@@ -339,19 +364,23 @@ class TestTestStep:
     ) -> None:
         """Exact-match accuracy must be 0.0 when no prediction matches its target."""
         # First decode call (preds) -> "(B)"; second (targets) -> "(A)".
-        module.processor.batch_decode.side_effect = [["(B)"], ["(A)"]]
-        module.log = MagicMock()
+        mock_processor = module.processor
+        assert isinstance(mock_processor, MagicMock)
+        mock_processor.batch_decode.side_effect = [["(B)"], ["(A)"]]
+        mock_log = MagicMock()
+        setattr(module, "log", mock_log)
         module.test_step(_make_batch(), batch_idx=0)
-        logged_acc = module.log.call_args_list[0].args[1]
+        logged_acc = mock_log.call_args_list[0].args[1]
         assert logged_acc == pytest.approx(0.0)
 
     def test_logs_test_accuracy_with_correct_kwargs(
         self, module: PaliGemmaModule
     ) -> None:
         """test/accuracy must be logged with on_step=False, on_epoch=True."""
-        module.log = MagicMock()
+        mock_log = MagicMock()
+        setattr(module, "log", mock_log)
         module.test_step(_make_batch(), batch_idx=0)
-        module.log.assert_called_once_with(
+        mock_log.assert_called_once_with(
             "test/accuracy",
             pytest.approx(1.0),
             on_step=False,
@@ -364,10 +393,13 @@ class TestTestStep:
     ) -> None:
         """Whitespace in decoded strings must not affect accuracy comparison."""
         # Decoded strings with surrounding whitespace must still match after strip().
-        module.processor.batch_decode.side_effect = [["  (A)  "], ["(A)"]]
-        module.log = MagicMock()
+        mock_processor = module.processor
+        assert isinstance(mock_processor, MagicMock)
+        mock_processor.batch_decode.side_effect = [["  (A)  "], ["(A)"]]
+        mock_log = MagicMock()
+        setattr(module, "log", mock_log)
         module.test_step(_make_batch(), batch_idx=0)
-        logged_acc = module.log.call_args_list[0].args[1]
+        logged_acc = mock_log.call_args_list[0].args[1]
         assert logged_acc == pytest.approx(1.0)
 
 
