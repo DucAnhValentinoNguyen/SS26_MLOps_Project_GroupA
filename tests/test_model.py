@@ -23,11 +23,12 @@ def _make_mock_model() -> MagicMock:
     """
     model = MagicMock()
 
-    # Parameters must be iterable so freeze loops and numel() calls succeed.
-    dummy_param = torch.nn.Parameter(torch.zeros(4))
-    model.vision_tower.parameters.return_value = [dummy_param]
-    model.language_model.parameters.return_value = [dummy_param]
-    model.parameters.return_value = [dummy_param]
+    def fresh_params():
+        return [torch.nn.Parameter(torch.zeros(4))]
+
+    model.vision_tower.parameters.side_effect = fresh_params
+    model.language_model.parameters.side_effect = fresh_params
+    model.parameters.side_effect = fresh_params
 
     # Forward pass returns an object with a scalar loss tensor.
     forward_output = MagicMock()
