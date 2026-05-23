@@ -78,7 +78,10 @@ select = ["E", "F", "W", "D"]
 convention = "google"
 
 [tool.coverage.run]
-omit = ["tests/*"]
+omit = [
+    "tests/*",
+    "/tmp/*",
+]
 
 [tool.mypy]
 ignore_missing_imports = true
