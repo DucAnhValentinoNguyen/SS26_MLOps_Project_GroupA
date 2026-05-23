@@ -186,7 +186,7 @@ class TestPreprocess:
         saved: list[DatasetDict] = []
 
         def _capture(self, path: Path) -> None:  # 修复：添加 self 参数
-            saved.append(mock_load.return_value)
+            saved.append(self)
 
         with patch.object(DatasetDict, "save_to_disk", _capture):
             result = runner.invoke(
@@ -214,7 +214,7 @@ class TestPreprocess:
         saved: list[DatasetDict] = []
 
         def _capture(self, path: Path) -> None:  # 修复：添加 self 参数
-            saved.append(mock_load.return_value)
+            saved.append(self)
 
         with patch.object(DatasetDict, "save_to_disk", _capture):
             runner.invoke(
@@ -250,7 +250,7 @@ class TestPreprocess:
         saved: list[DatasetDict] = []
 
         def _capture(self, path: Path) -> None:  # 修复：添加 self 参数
-            saved.append(mock_load.return_value)
+            saved.append(self)
 
         with patch.object(DatasetDict, "save_to_disk", _capture):
             result = runner.invoke(
@@ -356,7 +356,7 @@ class TestSubsetData:
         saved: list[DatasetDict] = []
 
         def _capture(self, path: Path) -> None:  # 修复：添加 self 参数
-            saved.append(mock_load.return_value)
+            saved.append(self)
 
         with patch.object(DatasetDict, "save_to_disk", _capture):
             result = runner.invoke(
