@@ -86,11 +86,11 @@ def module() -> PaliGemmaModule:
 
     with (
         patch(
-            "model.PaliGemmaForConditionalGeneration.from_pretrained",
+            "project_name.model.PaliGemmaForConditionalGeneration.from_pretrained",
             return_value=mock_model,
         ),
         patch(
-            "model.AutoProcessor.from_pretrained",
+            "project_name.model.AutoProcessor.from_pretrained",
             return_value=mock_processor,
         ),
     ):
@@ -205,11 +205,11 @@ class TestPaliGemmaModuleInit:
         mock_processor = _make_mock_processor()
         with (
             patch(
-                "model.PaliGemmaForConditionalGeneration.from_pretrained",
+                "project_name.model.PaliGemmaForConditionalGeneration.from_pretrained",
                 return_value=mock_model,
             ),
             patch(
-                "model.AutoProcessor.from_pretrained",
+                "project_name.model.AutoProcessor.from_pretrained",
                 return_value=mock_processor,
             ),
         ):
@@ -222,11 +222,11 @@ class TestPaliGemmaModuleInit:
         mock_processor = _make_mock_processor()
         with (
             patch(
-                "model.PaliGemmaForConditionalGeneration.from_pretrained",
+                "project_name.model.PaliGemmaForConditionalGeneration.from_pretrained",
                 return_value=mock_model,
             ),
             patch(
-                "model.AutoProcessor.from_pretrained",
+                "project_name.model.AutoProcessor.from_pretrained",
                 return_value=mock_processor,
             ),
         ):
