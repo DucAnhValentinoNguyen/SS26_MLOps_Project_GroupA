@@ -10,7 +10,7 @@ from PIL import Image
 from torch.utils.data import RandomSampler, SequentialSampler
 from typer.testing import CliRunner
 
-from src.project_name.data import (
+from project_name.data import (
     COLUMNS_ALWAYS_DROP,
     DATASET_SUBSET,
     DataModule,
