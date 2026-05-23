@@ -183,7 +183,12 @@ class TestPreprocess:
         (tmp_path / "raw" / DATASET_SUBSET).mkdir(parents=True)
         mock_load.return_value = _make_dataset()
 
-        with patch("project_name.data.DatasetDict.save_to_disk"):
+        saved: list[DatasetDict] = []
+
+        def _capture(path: Path) -> None:
+            saved.append(mock_load.return_value)
+
+        with patch.object(DatasetDict, "save_to_disk", _capture):
             result = runner.invoke(
                 app,
                 [
@@ -196,7 +201,7 @@ class TestPreprocess:
             )
 
         assert result.exit_code == 0
-        assert "answer_text" in result.output
+        assert "answer_text" in saved[0]["train"].column_names
 
     @patch("project_name.data.load_from_disk")
     def test_always_drop_columns_removed(
@@ -204,13 +209,12 @@ class TestPreprocess:
     ) -> None:
         """Columns in COLUMNS_ALWAYS_DROP are never present in the output."""
         (tmp_path / "raw" / DATASET_SUBSET).mkdir(parents=True)
-        raw_dataset = _make_dataset()
-        mock_load.return_value = raw_dataset
+        mock_load.return_value = _make_dataset()
 
         saved: list[DatasetDict] = []
 
         def _capture(path: Path) -> None:
-            saved.append(raw_dataset)
+            saved.append(mock_load.return_value)
 
         with patch.object(DatasetDict, "save_to_disk", _capture):
             runner.invoke(
@@ -224,9 +228,8 @@ class TestPreprocess:
                 ],
             )
 
-        if saved:
-            for col in COLUMNS_ALWAYS_DROP:
-                assert col not in saved[0]["validation"].column_names
+        for col in COLUMNS_ALWAYS_DROP:
+            assert col not in saved[0]["validation"].column_names
 
     @patch("project_name.data.load_from_disk")
     def test_subject_filter_removes_other_subjects(
@@ -244,7 +247,12 @@ class TestPreprocess:
             }
         )
 
-        with patch("project_name.data.DatasetDict.save_to_disk"):
+        saved: list[DatasetDict] = []
+
+        def _capture(path: Path) -> None:
+            saved.append(mock_load.return_value)
+
+        with patch.object(DatasetDict, "save_to_disk", _capture):
             result = runner.invoke(
                 app,
                 [
@@ -259,7 +267,8 @@ class TestPreprocess:
             )
 
         assert result.exit_code == 0
-        assert "physics" in result.output
+        subjects = {s["subject"] for s in saved[0]["validation"]}
+        assert subjects == {"physics"}
 
     @patch("project_name.data.load_from_disk")
     def test_rejects_invalid_drop_cols(
@@ -290,7 +299,10 @@ class TestPreprocess:
     ) -> None:
         """Existing processed directory is removed when --overwrite is set."""
         (tmp_path / "raw" / DATASET_SUBSET).mkdir(parents=True)
-        (tmp_path / "processed" / DATASET_SUBSET).mkdir(parents=True)
+        existing = tmp_path / "processed" / DATASET_SUBSET
+        existing.mkdir(parents=True)
+        sentinel = existing / "old_file.txt"
+        sentinel.write_text("old")
         mock_load.return_value = _make_dataset()
 
         with patch("project_name.data.DatasetDict.save_to_disk"):
@@ -307,7 +319,7 @@ class TestPreprocess:
             )
 
         assert result.exit_code == 0
-        assert "Overwrite enabled" in result.output
+        assert not sentinel.exists()
 
 
 # Tests for the subset_data CLI command.
@@ -341,7 +353,12 @@ class TestSubsetData:
             n_train=50, n_validation=20, n_test=20
         )
 
-        with patch("project_name.data.DatasetDict.save_to_disk"):
+        saved: list[DatasetDict] = []
+
+        def _capture(path: Path) -> None:
+            saved.append(mock_load.return_value)
+
+        with patch.object(DatasetDict, "save_to_disk", _capture):
             result = runner.invoke(
                 app,
                 [
@@ -354,7 +371,7 @@ class TestSubsetData:
             )
 
         assert result.exit_code == 0
-        assert "train=10" in result.output
+        assert len(saved[0]["train"]) == 10
 
     @patch("project_name.data.load_from_disk")
     def test_subset_does_not_exceed_split_size(
@@ -452,7 +469,7 @@ class TestDataModule:
         """_collate() output dict contains a 'labels' key."""
         samples = [data_module.dataset["train"][i] for i in range(2)]
 
-        with patch("project_name.data.build_prompt", return_value="Q: ..."):
+        with patch("project_name.model.build_prompt", return_value="Q: ..."):
             batch = data_module._collate(samples)
 
         assert "labels" in batch
@@ -465,7 +482,7 @@ class TestDataModule:
 
         samples = [data_module.dataset["train"][i] for i in range(2)]
 
-        with patch("project_name.data.build_prompt", return_value="Q: ..."):
+        with patch("project_name.model.build_prompt", return_value="Q: ..."):
             batch = data_module._collate(samples)
 
         assert (batch["labels"][label_ids == 0] == -100).all()
@@ -483,7 +500,7 @@ class TestDataModule:
 
         data_module.processor.side_effect = _capture
 
-        with patch("project_name.data.build_prompt", return_value="Q: ..."):
+        with patch("project_name.model.build_prompt", return_value="Q: ..."):
             data_module._collate(samples)
 
         assert isinstance(received_images[0], Image.Image)
