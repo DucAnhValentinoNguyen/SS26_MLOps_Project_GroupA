@@ -54,7 +54,7 @@ class PredictionLogger(Callback):
     def on_test_batch_end(
         self,
         trainer: L.Trainer,
-        pl_module: PaliGemmaModule,
+        pl_module: L.LightningModule,
         outputs,
         batch: dict,
         batch_idx: int,
@@ -74,6 +74,7 @@ class PredictionLogger(Callback):
             batch_idx: Index of the current test batch.
             dataloader_idx: Index of the dataloader (unused).
         """
+        assert isinstance(pl_module, PaliGemmaModule)
         if len(self._rows) >= self.n_samples:
             return
 
@@ -81,7 +82,7 @@ class PredictionLogger(Callback):
         pixel_values = batch.get("pixel_values")
         labels = batch["labels"]
 
-        generated_ids = pl_module.model.generate(
+        generated_ids = pl_module.model.generate(  # type: ignore[misc]
             input_ids=input_ids,
             pixel_values=pixel_values,
             max_new_tokens=10,
