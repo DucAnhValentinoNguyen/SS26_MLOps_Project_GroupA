@@ -190,32 +190,7 @@ class TestPaliGemmaModuleInit:
         """vision_tower must be frozen when freeze_vision_encoder=True."""
         mock_model = module.model
         assert isinstance(mock_model, MagicMock)
-        mock_model.vision_tower.parameters.assert_called()
-
-    def test_language_model_not_frozen_by_default(
-        self, module: PaliGemmaModule
-    ) -> None:
-        """language_model must NOT be frozen by default."""
-        mock_model = module.model
-        assert isinstance(mock_model, MagicMock)
-        mock_model.language_model.parameters.assert_not_called()
-
-    def test_freeze_language_model_flag(self) -> None:
-        """freeze_language_model=True must freeze language_model."""
-        mock_model = _make_mock_model()
-        mock_processor = _make_mock_processor()
-        with (
-            patch(
-                "project_name.model.PaliGemmaForConditionalGeneration.from_pretrained",
-                return_value=mock_model,
-            ),
-            patch(
-                "project_name.model.AutoProcessor.from_pretrained",
-                return_value=mock_processor,
-            ),
-        ):
-            PaliGemmaModule(model_name="mock/model", freeze_language_model=True)
-        mock_model.language_model.parameters.assert_called()
+        mock_model.model.vision_tower.parameters.assert_called()
 
     def test_freeze_vision_encoder_false_skips_freeze(self) -> None:
         """Setting freeze_vision_encoder=False must leave vision_tower untouched."""
@@ -232,7 +207,32 @@ class TestPaliGemmaModuleInit:
             ),
         ):
             PaliGemmaModule(model_name="mock/model", freeze_vision_encoder=False)
-        mock_model.vision_tower.parameters.assert_not_called()
+        mock_model.model.vision_tower.parameters.assert_not_called()
+
+    def test_language_model_not_frozen_by_default(
+        self, module: PaliGemmaModule
+    ) -> None:
+        """language_model must NOT be frozen by default."""
+        mock_model = module.model
+        assert isinstance(mock_model, MagicMock)
+        mock_model.model.language_model.parameters.assert_not_called()
+
+    def test_freeze_language_model_flag(self) -> None:
+        """freeze_language_model=True must freeze language_model."""
+        mock_model = _make_mock_model()
+        mock_processor = _make_mock_processor()
+        with (
+            patch(
+                "project_name.model.PaliGemmaForConditionalGeneration.from_pretrained",
+                return_value=mock_model,
+            ),
+            patch(
+                "project_name.model.AutoProcessor.from_pretrained",
+                return_value=mock_processor,
+            ),
+        ):
+            PaliGemmaModule(model_name="mock/model", freeze_language_model=True)
+        mock_model.model.language_model.parameters.assert_called()
 
 
 class TestTrainingStep:

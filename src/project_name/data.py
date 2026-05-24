@@ -9,7 +9,6 @@ from rich.logging import RichHandler
 import shutil
 import lightning as L
 from PIL import Image
-from project_name.model import build_prompt
 
 logging.basicConfig(
     level=logging.INFO,
@@ -360,6 +359,7 @@ class DataModule(L.LightningDataModule):
             A dict of tensors ready for the model, including 'labels'.
         """
         # Avoid circular import by importing processor here
+        from project_name.model import build_prompt
 
         prompts, answer_texts, images = [], [], []
         for s in samples:
