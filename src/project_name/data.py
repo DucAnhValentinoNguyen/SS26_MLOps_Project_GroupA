@@ -182,8 +182,8 @@ def preprocess(
 
     # Step 1: Add answer_text field derived from choices and answer index.
     def _add_answer_text(sample: dict) -> dict:
-        """Replace integer answer index with the corresponding answer string."""
-        sample["answer_text"] = sample["choices"][sample["answer"]]
+        """Replace integer answer index with the corresponding answer letter."""
+        sample["answer_text"] = chr(ord("A") + sample["answer"])
         return sample
 
     dataset = dataset.map(_add_answer_text)

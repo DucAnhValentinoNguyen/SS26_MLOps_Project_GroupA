@@ -88,7 +88,7 @@ def evaluate(
         if pixel_values is not None:
             pixel_values = pixel_values.to(model.device)
         labels = batch["labels"].to(model.device)
-        subjects = batch.get("subject", [])
+        subjects = batch.get("subjects", [])
 
         generated_ids = model.model.generate(  # type: ignore[misc]
             input_ids=input_ids,
@@ -108,7 +108,7 @@ def evaluate(
         targets = model.processor.batch_decode(label_ids, skip_special_tokens=True)
 
         for i, (pred, target) in enumerate(zip(preds, targets)):
-            is_correct = pred.strip() == target.strip()
+            is_correct = pred.strip().upper() == target.strip().upper()
             total_correct += is_correct
             total_samples += 1
             if by_subject and subjects:

@@ -17,15 +17,23 @@ log = logging.getLogger(__name__)
 MODEL_NAME = "google/paligemma2-3b-pt-224"
 
 
-def build_prompt(question: str, choices: list[str]) -> str:
+def build_prompt(
+    question: str,
+    choices: list[str],
+    hint: str = "",
+    lecture: str = "",
+) -> str:
     """Build the PaliGemma2 VQA prompt for a sample.
 
     Uses the standard PaliGemma2 task prefix 'answer en' for English VQA.
     Choices are formatted as '(A) choice1 (B) choice2 ...'
+    Optional hint and lecture are appended when provided.
 
     Args:
         question: The question text.
         choices: List of answer choice strings.
+        hint: Optional hint text appended after the question.
+        lecture: Optional background knowledge appended after the hint.
 
     Returns:
         Formatted prompt string ready for the processor.
@@ -33,8 +41,13 @@ def build_prompt(question: str, choices: list[str]) -> str:
     choices_str = " ".join(
         f"({chr(65+i)}) {choice}" for i, choice in enumerate(choices)
     )
-    prompt = f"answer en {question} Choices: {choices_str}"
-    return prompt
+    parts = [f"answer en {question}"]
+    if hint:
+        parts.append(f"Hint: {hint}")
+    if lecture:
+        parts.append(f"Lecture: {lecture}")
+    parts.append(f"Choices: {choices_str}")
+    return " ".join(parts)
 
 
 class PaliGemmaModule(L.LightningModule):

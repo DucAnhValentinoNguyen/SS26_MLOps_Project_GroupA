@@ -96,7 +96,7 @@ def _make_processed_dataset(
     def _processed_sample() -> dict:
         """Return a single preprocessed sample with answer_text and no dropped cols."""
         s = _make_sample()
-        s["answer_text"] = s["choices"][s["answer"]]
+        s["answer_text"] = chr(ord("A") + s["answer"])
         for col in COLUMNS_ALWAYS_DROP:
             s.pop(col, None)
         return s
@@ -202,6 +202,7 @@ class TestPreprocess:
 
         assert result.exit_code == 0
         assert "answer_text" in saved[0]["train"].column_names
+        assert saved[0]["train"][0]["answer_text"] in list("ABCDEFGHIJ")
 
     @patch("project_name.data.load_from_disk")
     def test_always_drop_columns_removed(
