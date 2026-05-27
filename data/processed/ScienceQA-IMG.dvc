@@ -1,0 +1,6 @@
+outs:
+- md5: 1caea61c1d0e0e23407d8f68f7e4f4ca.dir
+  size: 271285489
+  nfiles: 10
+  hash: md5
+  path: ScienceQA-IMG
