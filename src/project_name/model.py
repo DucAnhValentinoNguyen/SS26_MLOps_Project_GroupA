@@ -70,6 +70,9 @@ class PaliGemmaModule(L.LightningModule):
         gradient_checkpointing: Whether to enable gradient checkpointing
                                 for memory efficiency.
         use_lora: Whether to apply LoRA fine-tuning to the language model.
+        lora_r: LoRA rank (number of trainable parameters = 2 * r * hidden_size).
+        lora_alpha: LoRA scaling factor.
+        lora_dropout: LoRA dropout rate.
     """
 
     def __init__(
@@ -81,6 +84,9 @@ class PaliGemmaModule(L.LightningModule):
         freeze_language_model: bool = False,
         gradient_checkpointing: bool = False,
         use_lora: bool = True,
+        lora_r: int = 8,
+        lora_alpha: int = 16,
+        lora_dropout: float = 0.05,
     ) -> None:
         """Initialize the PaliGemmaModule with model and processor loading."""
         super().__init__()
@@ -113,10 +119,10 @@ class PaliGemmaModule(L.LightningModule):
 
         if use_lora:
             lora_config = LoraConfig(
-                r=8,
-                lora_alpha=16,
+                r=lora_r,
+                lora_alpha=lora_alpha,
                 target_modules=["q_proj", "v_proj"],
-                lora_dropout=0.05,
+                lora_dropout=lora_dropout,
                 bias="none",
             )
             self.model = get_peft_model(self.model, lora_config)  # type: ignore[assignment]

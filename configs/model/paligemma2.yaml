@@ -10,3 +10,6 @@ freeze_vision_encoder: true
 freeze_language_model: false
 gradient_checkpointing: true
 use_lora: true
+lora_r: 8
+lora_alpha: 16
+lora_dropout: 0.05
