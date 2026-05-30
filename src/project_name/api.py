@@ -7,7 +7,6 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-import torch
 from fastapi import FastAPI, HTTPException
 from PIL import Image
 from pydantic import BaseModel, Field
@@ -174,15 +173,14 @@ def predict(request: PredictRequest) -> PredictResponse:
     if request.lecture:
         prompt_kwargs["lecture"] = request.lecture
 
-    with torch.inference_mode():
-        prediction = predict_single(
-            module=_module,
-            image=image,
-            question=request.question,
-            choices=request.choices,
-            max_new_tokens=request.max_new_tokens,
-            **prompt_kwargs,
-        )
+    prediction = predict_single(
+        module=_module,
+        image=image,
+        question=request.question,
+        choices=request.choices,
+        max_new_tokens=request.max_new_tokens,
+        **prompt_kwargs,
+    )
 
     log.info(
         "Prediction complete | question: %.60s | prediction: %s",

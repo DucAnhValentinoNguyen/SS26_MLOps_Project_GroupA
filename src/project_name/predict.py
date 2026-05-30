@@ -81,9 +81,7 @@ def predict_single(
                          e.g. hint="...", lecture="...".
 
     Returns:
-        Tuple of (answer_text, answer_letter) where answer_text is the raw
-        decoded string and answer_letter is the corresponding "A"/"B"/"C"/"D",
-        or "?" if the prediction does not match any choice.
+        The predicted answer as a single uppercase string, e.g. "A"/"B"/"C"/"D".
     """
     built_prompt = build_prompt(question, choices, **prompt_kwargs)
     device = next(module.parameters()).device
