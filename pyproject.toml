@@ -37,7 +37,7 @@ dependencies = [
     "torchvision>=0.21.0",
     "transformers>=5.9.0",
     "typer>=0.16.0",
-    "uvicorn==0.34.0",
+    "uvicorn==0.48.0",
     "wandb>=0.27.0",
 ]
 
