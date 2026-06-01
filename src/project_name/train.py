@@ -160,7 +160,7 @@ def upload_to_gcs(local_path: Path, gcs_dir: str) -> str:
     Returns:
         The full gs:// URI of the uploaded object.
     """
-    from google.cloud import storage
+    from google.cloud import storage  # type: ignore[attr-defined]
 
     parsed = urlparse(gcs_dir)
     blob_name = f"{parsed.path.lstrip('/')}/{local_path.name}".lstrip("/")
