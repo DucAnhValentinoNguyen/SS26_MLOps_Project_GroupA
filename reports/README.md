@@ -359,15 +359,51 @@ Yes, initially Google Drive, then GCP bucket, and finally Git Large File System.
 
 
 
+
+
 ### Question 11
 
-> **Discuss you continues integration setup. What kind of CI are you running (unittesting, linting, etc.)? Do you test**
+> **Discuss your continuous integration setup. What kind of CI are you running (unittesting, linting, etc.)? Do you test**
 > **multiple operating systems, python version etc. Do you make use of caching? Feel free to insert a link to one of**
 > **your github actions workflow.**
+>
+> Answer length: 200-300 words.
+>
+> Example:
+> *We have organized our continuous integration into 3 separate files: one for doing ..., one for running ... testing and one for running*
+> *... . In particular for our ..., we used ... .An example of a triggered workflow can be seen here: <weblink>*
+>
+> Answer:
+
+We have organized our continues integration into three separate files: 
+one for doing unittesting, 
+one for running isort testing and 
+one for running flake8. 
+
+
+The isort test and the flake8 test are only run on the Ubuntu operating system and the python version 3.8. 
+
+The unittesting is also run on the windows operating system and python version 3.10. 
+
+Here we also make use of caching to speed up the process. Testing the dataset consists of loading the data and checking whether the format is correct. More precicely we check if the data (en-de) is given as a string and a label. When testing the model the following things must be satisfied
+- The model is in torch
+- The model outputs the translated sentence as a list containing a string
+- In both training, validation and test the model outputs a torch tensor containing a float (not NaN)
+
+Link to github actions:
+https://github.com/MikkelGodsk/dtu_mlops_exam_project/actions/runs/3961726045/workflow
+
+
+
+#######################################
+
+
 
 To control the testing and deploying we used git workflow. The test suite that we use consists of validation testing and unit testing. We use two git hub triggers, one for pull request on the main, which runs the validation test and unit test suite, and one for pushing/merging to main, which runs  the build and deployment suite after having passed all tests. The tests suite tests various versions of python, but only on linux(ubuntu) which the docker container is built on.
 
-The validation tests consist of checking if the newest module gives the correct inference on some custom data. We also verify the data used to train the model, by checking if the format of the training data is correct. The unit testing consists of testing the front end api, to ensure excellent user experience.
+The validation tests consist of checking if the newest module gives the correct inference on some custom data. We also verify the data used to train the model, by checking if the format of the training data is correct. 
+
+The unit testing consists of testing the front end api, to ensure excellent user experience.
 
 
 Overall, our use of git workflow and a comprehensive test suite allowed us to efficiently and effectively test and deploy our project, ensuring the highest quality for our users.
@@ -378,27 +414,7 @@ The workflows can be found here:
 
 
 
-### Question 11
 
-> **Discuss your continues integration setup. What kind of CI are you running (unittesting, linting, etc.)? Do you test**
-> **multiple operating systems, python version etc. Do you make use of caching? Feel free to insert a link to one of**
-> **your github actions workflow.**
->
-> Answer length: 200-300 words.
->
-> Example:
-> *We have organized our continues integration into 3 separate files: one for doing ..., one for running ... testing and one for running*
-> *... . In particular for our ..., we used ... .An example of a triggered workflow can be seen here: <weblink>*
->
-> Answer:
-
-We have organized our continues integration into three separate files: one for doing unittesting, one for running isort testing and one for running flake8. The isort test and the flake8 test are only run on the Ubuntu operating system and the python version 3.8. The unittesting is also run on the windows operating system and python version 3.10. Here we also make use of caching to speed up the process. Testing the dataset consists of loading the data and checking whether the format is correct. More precicely we check if the data (en-de) is given as a string and a label. When testing the model the following things must be satisfied
-- The model is in torch
-- The model outputs the translated sentence as a list containing a string
-- In both training, validation and test the model outputs a torch tensor containing a float (not NaN)
-
-Link to github actions:
-https://github.com/MikkelGodsk/dtu_mlops_exam_project/actions/runs/3961726045/workflow
 
 
 
@@ -423,17 +439,6 @@ https://github.com/MikkelGodsk/dtu_mlops_exam_project/actions/runs/3961726045/wo
 
 
 
-
-### Question 12
-
-> **How did you configure experiments? Did you make use of config files? Explain with coding examples of how you would**
-> **run a experiment.**
-
-As a first apporoach, we used a simple argparser, that worked in the following way:
-
-python train.py --lr 1e-4 --batch_size 50 --seed 1337.
-
-Hyperparameters were stored under config/config.yaml. In general, a configuration file contains desired experiment settings, such as hyperparameters, data paths, and run options. A developer uses a library or script to read the file and set the corresponding values in the code before running the experiment. Further on, we built and run several images locally, varying the initialization of the LR.
 
 
 
@@ -460,6 +465,24 @@ We utilized the *sweep* functionality of `wandb` in an attempt to optimize hyper
 
 When using the src/models/predict_model.py we use a simple argparser to give the input string to be translated along with the checkpoint file containing the trained model weights.
 
+###
+
+As a first apporoach, we used a simple argparser, that worked in the following way:
+
+python train.py --lr 1e-4 --batch_size 50 --seed 1337.
+
+Hyperparameters were stored under config/config.yaml. 
+
+In general, a configuration file contains desired experiment settings, such as hyperparameters, data paths, and run options. 
+
+A developer uses a library or script to read the file and set the corresponding values in the code before running the experiment. 
+
+Further on, we built and run several images locally, varying the initialisation of the LR.
+
+
+
+
+
 
 
 
@@ -484,25 +507,23 @@ When using the src/models/predict_model.py we use a simple argparser to give the
 > *one would have to do ...*
 >
 > Answer:
-
- When we load the config file the hyperparameters of the model is set to the values provided in the file. Hence one can easily see which parameters are used to train. However, when conducting experiments it is important to track which parameters are used. By ensuring commits between changes in config file we make sure that experiments are logged in the git commit history. In order to reproduce the experiments we included a seed in the configuration file. Hereby we ensure that the exact same results are obtained when training a model with a specific set of hyperparameters. Furthermore we created docker images, which ensures that our models can be run on all computers. By running multiple experiments in W&B we ensure that hyperparameters are kept in W&B.
-
-
-
-
-
-
-### Question 13
-
-> **Reproducibility of experiments are important. Related to the last question, how did you secure that no information**
-> **is lost when running experiments and that your experiments are reproducible?**
-
-We made use of config files in our experiments. Whenever we ran an experiment, several metrics were logged to W&B, as shown in the images below. The graphs demonstrate that the val and train loss reduce over time. To reproduce an experiment, one would need to select the desired set of hyperparameters from the config/name_of_the_experiment file. In this file, all the hyperparameters are listed, which made the training deterministic. These include the batch size, learning rate, seed split, seed train, image size, and train-val split. Having all these hyperparameters listed in one place allowed us to easily reproduce our experiments and ensure consistency in our results. It also allowed us to easily compare different sets of hyperparameters and determine which ones were the most effective for our particular problem. Overall, the use of config files was a crucial aspect of our experimentation process and helped us to achieve more accurate and reliable results.
+When we load the config file the hyperparameters of the model is set to the values provided in the file.
+>
+> Hence one can easily see which parameters are used to train.
+>
+> However, when conducting experiments it is important to track which parameters are used. By ensuring commits between changes in config file we make sure that experiments are logged in the git commit history.
+>
+> In order to reproduce the experiments we included a seed in the configuration file. Hereby we ensure that the exact same results are obtained when training a model with a specific set of hyperparameters. Furthermore we created docker images, which ensures that our models can be run on all computers. By running multiple experiments in W&B we ensure that hyperparameters are kept in W&B.
 
 
 
+###
 
+We made use of config files in our experiments. Whenever we ran an experiment, several metrics were logged to W&B, as shown in the images below. 
 
+The graphs demonstrate that the val and train loss reduce over time. To reproduce an experiment, one would need to select the desired set of hyperparameters from the config/name_of_the_experiment file. 
+
+In this file, all the hyperparameters are listed, which made the training deterministic. These include the batch size, learning rate, seed split, seed train, image size, and train-val split. Having all these hyperparameters listed in one place allowed us to easily reproduce our experiments and ensure consistency in our results. It also allowed us to easily compare different sets of hyperparameters and determine which ones were the most effective for our particular problem. Overall, the use of config files was a crucial aspect of our experimentation process and helped us to achieve more accurate and reliable results.
 
 
 
@@ -515,21 +536,8 @@ We made use of config files in our experiments. Whenever we ran an experiment, s
 
 
 
-### Question 14
 
-> **Upload 1 to 3 screenshots that show the experiments that you have done in W&B (or another experiment tracking**
-> **service of your choice). This may include loss graphs, logged images, hyperparameter sweeps etc. You can take**
-> **inspiration from [this figure](figures/wandb.png). Explain what metrics you are tracking and why they are**
-> **important.**
 
-![timma1_exp](figures/timma1_exp.png)
-![timmh_exp](figures/timmh_exp.png)
-
-We utilized loss and accuracy as metrics in W&B to monitor the performance of our machine learning models. Loss is a measure of how well a model is able to predict the target variable, and it is calculated by comparing the predicted values to the actual values. In other words, it represents the error of the model, and the goal is to minimize it. In contrast, accuracy is a measure of how well the model is able to correctly classify the target variable. It is calculated by comparing the number of correctly classified instances to the total number of instances.
-
-During the training process, we used W&B to track and visualize the evolution of these metrics. This helped us to identify when the model was overfitting or underfitting, and to make adjustments accordingly. By monitoring the loss and accuracy, we were able to optimize the model's performance and fine-tune the parameters to achieve the best results.
-
-We also compared the performance of different models by comparing the metrics in W&B. For example, as can be seen from the images above, in timma1_exp the eval_top1 reaches 87.5% accuracy, whereas timmh_exp reached eval_top1 99.3% accuracy. This allowed us to determine which model performed better (we are currently deployin a model that reached 99.7% accuracy at test time) and to make decisions on which model to use for further analysis.
 
 
 
@@ -566,6 +574,16 @@ We also perform a sweep in an attempt to optimize hyperparamters based on obtain
 
 This did however show us that with the best hyperparameterse the validation loss remains constant.
 
+#####################
+
+![timma1_exp](figures/timma1_exp.png)
+![timmh_exp](figures/timmh_exp.png)
+
+We utilized loss and accuracy as metrics in W&B to monitor the performance of our machine learning models. Loss is a measure of how well a model is able to predict the target variable, and it is calculated by comparing the predicted values to the actual values. In other words, it represents the error of the model, and the goal is to minimize it. In contrast, accuracy is a measure of how well the model is able to correctly classify the target variable. It is calculated by comparing the number of correctly classified instances to the total number of instances.
+
+During the training process, we used W&B to track and visualize the evolution of these metrics. This helped us to identify when the model was overfitting or underfitting, and to make adjustments accordingly. By monitoring the loss and accuracy, we were able to optimize the model's performance and fine-tune the parameters to achieve the best results.
+
+We also compared the performance of different models by comparing the metrics in W&B. For example, as can be seen from the images above, in timma1_exp the eval_top1 reaches 87.5% accuracy, whereas timmh_exp reached eval_top1 99.3% accuracy. This allowed us to determine which model performed better (we are currently deployin a model that reached 99.7% accuracy at test time) and to make decisions on which model to use for further analysis.
 
 
 
@@ -580,26 +598,6 @@ This did however show us that with the best hyperparameterse the validation loss
 
 
 
-
-
-
-
-### Question 15
-
-> **Docker is an important tool for creating containerized applications. Explain how you used docker in your**
-> **experiments? Include how you would run your docker images and include a link to one of your docker files.**
-
-In the training phase, Docker is used to create a containerized environment for the training dataset and the training script. This ensures that the training process is consistent and reproducible across different environments. In the inference phase, a containerized environment is created for the trained model and the inference script, which can be deployed to different environments. In the deployment phase, the containerized environment is deployed to a production environment, such as a cloud service or a local server, to ensure that the model is running in a consistent environment. This allows for easy scaling and management of the deployed model.
-
-building docker image:
-docker build -f wandb.dockerfile . -t train_wandb
-
-taining docker image:
-docker run -e WANDB_API_KEY=b4ad9544b66bcfec7dfd8aeb858fbcf3bf701c98 train_wandb:latest
-
-Link to docker file:
-
-<https://github.com/Snirpurin/MLOPS_group3/blob/main/Dockerfile>
 
 
 
@@ -618,9 +616,42 @@ Link to docker file:
 >
 > Answer:
 
-In our project, reproducablity is very important, hence we utilize Docker in order to ensure that the application can be run on all devices. Hence we created docker images for training and deploying the model. Since building docker images are a time consuming task, we prefred google cloud for building the dockerimages in cloud using a dockerfile and triggers. After being build the docker images are run using google cloud Run.
+In our project, reproducablity is very important, hence we utilize Docker in order to ensure that the application can be run on all devices. Hence we created docker images for training and deploying the model. 
+
+Since building docker images are a time consuming task, we prefred google cloud for building the dockerimages in cloud using a dockerfile and triggers. 
+
+After being build the docker images are run using google cloud Run.
+
+
 A link to the training docker file is provided in the following:
 https://github.com/MikkelGodsk/dtu_mlops_exam_project/blob/main/trainer.dockerfile
+
+
+
+############################################
+
+In the training phase, Docker is used to create a containerized environment for the training dataset and the training script. This ensures that the training process is consistent and reproducible across different environments. 
+
+In the inference phase, a containerized environment is created for the trained model and the inference script, which can be deployed to different environments. 
+
+In the deployment phase, the containerized environment is deployed to a production environment, such as a cloud service or a local server, to ensure that the model is running in a consistent environment. This allows for easy scaling and management of the deployed model.
+
+
+
+building docker image:
+docker build -f wandb.dockerfile . -t train_wandb
+
+taining docker image:
+docker run -e WANDB_API_KEY=b4ad9544b66bcfec7dfd8aeb858fbcf3bf701c98 train_wandb:latest
+
+Link to docker file:
+
+<https://github.com/Snirpurin/MLOPS_group3/blob/main/Dockerfile>
+
+
+
+
+
 
 
 
@@ -654,18 +685,37 @@ https://github.com/MikkelGodsk/dtu_mlops_exam_project/blob/main/trainer.dockerfi
 >
 > Answer:
 
-When locally executing code we used the build in debugger in visual studio code and when this was not enought we used simple print statements. The debugging mode in visual studio is in general quite informative and helpfull when erros occured. When for example building images in google cloud a lot of errors occured. Hence debugging needed to be performed locally before building in cloud.
+When locally executing code we used the build in debugger in visual studio code and when this was not enough we used simple print statements. 
 
-We used the inbuild tool from pytorch lightning for profiling the training, but we did not really do anything to improve the code based on the profilling. However we are avare that the code might be edible for improvements. For example, we considered saving the tokenized dataset, which would probably speed up the training processes, such that the tokenization is not necessary every time the training function is called.
+The debugging mode in visual studio is in general quite informative and helpfull when erros occured. 
+
+When for example building images in google cloud a lot of errors occured. 
+
+Hence debugging needed to be performed locally before building in cloud.
 
 
 
-### Question 16
 
-> **When running into bugs while trying to run your experiments, how did you perform debugging? Additionally, did you**
-> **try to profile your code or do you think it is already perfect?**
+We used the inbuild tool from pytorch lightning for profiling the training, but we did not really do anything to improve the code based on the profilling. 
 
-When running into bugs while trying to run experiments, we first tried to identify the source of the problem by reviewing the code and any error messages that are displayed. Next, we used the TIMM documentation to understand why the trainig was failing. We also made sure to test small sections of the code at a time to ensure that the problem was not caused by an interaction between multiple sections. Additionally, we consulted online resources to see if similar bugs have been reported and if there were any known solutions. We did not perform any profiling of our main code.
+
+However we are aware that the code might be edible for improvements. For example, we considered saving the tokenized dataset, which would probably speed up the training processes, such that the tokenisation is not necessary every time the training function is called.
+
+
+
+########################################
+
+
+When running into bugs while trying to run experiments, we first tried to identify the source of the problem by reviewing the code and any error messages that are displayed. 
+
+Next, we used the TIMM documentation to understand why the trainig was failing. We also made sure to test small sections of the code at a time to ensure that the problem was not caused by an interaction between multiple sections. 
+
+
+Additionally, we consulted online resources to see if similar bugs have been reported and if there were any known solutions. 
+
+
+
+We did not perform any profiling of our main code.
 
 
 
@@ -687,21 +737,6 @@ When running into bugs while trying to run experiments, we first tried to identi
 
 > In the following section we would like to know more about your experience when developing in the cloud.
 
-### Question 17
-
-> **List all the GCP services that you made use of in your project and shortly explain what each service does?**
->
-> Answer length: 50-200 words.
->
-> Example:
-> *We used the following two services: Engine and Bucket. Engine is used for... and Bucket is used for...*
->
-> Answer:
-
-Google Cloud Platform's Engine and Bucket are two separate services that work together to provide a comprehensive solution for cloud computing and storage. Engine is a powerful and flexible platform that allows users to create and run virtual machines, containers, and other applications on the cloud. It provides a wide range of features and tools for managing and scaling resources, including automatic load balancing, automatic backups, and automatic scaling. This makes it easy for users to create and manage their applications and services on the cloud, without having to worry about the underlying infrastructure.
-
-Bucket, on the other hand, is a cloud-based storage service that allows users to store and manage data in the cloud. It provides a simple and cost-effective way to store and access data, including large files, images, videos, and other types of data. Bucket also provides a range of security and access controls, so users can control who has access to their data and how it is used. Together, Engine and Bucket provide a powerful and reliable solution for cloud computing and storage, making it easy for users to create and manage their applications and services on the cloud.
-
 
 ### Question 17
 
@@ -713,9 +748,19 @@ Bucket, on the other hand, is a cloud-based storage service that allows users to
 > *We used the following two services: Engine and Bucket. Engine is used for... and Bucket is used for...*
 >
 > Answer:
+
+Google Cloud Platform's Engine and Bucket are two separate services that work together to provide a comprehensive solution for cloud computing and storage. 
+
+
+Engine is a powerful and flexible platform that allows users to create and run virtual machines, containers, and other applications on the cloud. It provides a wide range of features and tools for managing and scaling resources, including automatic load balancing, automatic backups, and automatic scaling. This makes it easy for users to create and manage their applications and services on the cloud, without having to worry about the underlying infrastructure.
 
 Buckets:
-We used GCP buckets for initally storing the data. However we quickly ran out of credits and hence had to create a new bucket containg the same data but with a different billing account. Furthermore we also used buckets for storring checkpoints.
+Bucket is a cloud-based storage service that allows users to store and manage data in the cloud. It provides a simple and cost-effective way to store and access data, including large files, images, videos, and other types of data. Bucket also provides a range of security and access controls, so users can control who has access to their data and how it is used. We used GCP buckets for initally storing the data. However we quickly ran out of credits and hence had to create a new bucket containg the same data but with a different billing account. Furthermore we also used buckets for storring checkpoints. 
+
+Together, Engine and Bucket provide a powerful and reliable solution for cloud computing and storage, making it easy for users to create and manage their applications and services on the cloud.
+
+
+
 
 Build:
 Images are build using cloud build.
@@ -757,14 +802,6 @@ Training framework where we run the docker image
 >
 > Answer:
 
-In this project we did not utilize the Compute engine and used Vertex AI instead.
-
-
-
-### Question 18
-
-> **The backbone of GCP is the Compute engine. Explained how you made use of this service and what type of VMs**
-> **you used?**
 
 We are using Cloud Run to deploy the docker images of our application, and scale it.
 
@@ -794,12 +831,6 @@ The bucket can be seen in the following
 Here the bucket wmt19-de-en refers to the full dataset whereas 30k-dataset refers to the smaller dataset.
 
 
-
-### Question 19
-
-> **Insert 1-2 images of your GCP bucket, such that we can see what data you have stored in it.**
-> **You can take inspiration from [this figure](figures/bucket.png).**
-
 ![bucket](figures/bucket_.png)
 
 
@@ -827,59 +858,7 @@ Here the bucket wmt19-de-en refers to the full dataset whereas 30k-dataset refer
 
 ![GCP Registry](figures/gcp_registry.png)
 
-
-
-
-
-### Question 20
-
-> **Upload one image of your GCP container registry, such that we can see the different images that you have stored.**
-> **You can take inspiration from [this figure](figures/registry.png).**
-y
 ![registry](figures/registry_.png)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -897,16 +876,6 @@ y
 
 ![build](figures/build_.png)
 
-
-
-
-### Question 21
-
-> **Upload one image of your GCP cloud build history, so we can see the history of the images that have been build in**
-> **your project. You can take inspiration from [this figure](figures/build.png).**
->
-> Answer:
-
 ![Build history](figures/build_history_cloud.png)
 
 
@@ -917,18 +886,6 @@ y
 
 
 
-
-
-
-### Question 22
-
-> **Did you manage to deploy your model, either in locally or cloud? If not, describe why. If yes, describe how and**
-> **preferably how you invoke your deployed service?**
-
-We successfully deployed our model in the cloud using Google Cloud Platform's Cloud Run service. We wrapped our model into an application and made it accessible to users via a specific URL. It can be accessed via <https://riceclassifier-375010-zhexeh6bxa-uc.a.run.app/> . User is required to load a 224x224, black and white image in jpg format of a grain of rice among Arborio, Basmati, Ipsala, Jasmine, and Karacadag rice varieties for recognition.
-
-It can also be accessed using `curl -X POST -F "file=@file.json" <  11:05 AM
-https://riceclassifier-375010-zhexeh6bxa-uc.a.run.app/>`
 
 
 
@@ -948,13 +905,32 @@ https://riceclassifier-375010-zhexeh6bxa-uc.a.run.app/>`
 >
 > Answer:
 
-Deploying the model locally was quite straight forward. Inputs to the model can easily be given through the terminal. However deploying in google cloud caused a lot more complication. For deployment we wrapped our model into an application using FastAPI and used cloud run. We were heavily challenged by the fact that after training the model the checkpoint could not be saved to a bucket on cloud without authentication, which we did not manage to implement. Hence we did not use the finetuned model for deployment directly trough cloud.
-We did however manage to finetune the model on the hypatia cluster at DTU and uploading a checkpoint to bucket, however we had issues with downloading he checkpoint from within the python code (again due to authentication issues). Given a little more time, it would have been easy to setup DVC such that the model weights would be store alongside the dataset, whence we should have been able to get the finetuned model to deploy.
+Deploying the model locally was quite straight forward. Inputs to the model can easily be given through the terminal. 
+
+
+However deploying in google cloud caused a lot more complication. For deployment we wrapped our model into an application using FastAPI and used cloud run. We were heavily challenged by the fact that after training the model the checkpoint could not be saved to a bucket on cloud without authentication, which we did not manage to implement. Hence we did not use the finetuned model for deployment directly trough cloud.
+
+We did however manage to finetune the model on the hypatia cluster at DTU and uploading a checkpoint to bucket, however we had issues with downloading he checkpoint from within the python code (again due to authentication issues). 
+
+
+Given a little more time, it would have been easy to setup DVC such that the model weights would be store alongside the dataset, whence we should have been able to get the finetuned model to deploy.
 
 In the training file, we used distributed data loading and multiple workers implemented through pytorch-lightning.
 
 Link to our model:
 https://translation-gcp-app-jc4crsqeca-lz.a.run.app/translate/How are you doing?
+
+
+
+
+
+###############################
+
+We successfully deployed our model in the cloud using Google Cloud Platform's Cloud Run service. We wrapped our model into an application and made it accessible to users via a specific URL. It can be accessed via <https://riceclassifier-375010-zhexeh6bxa-uc.a.run.app/> . User is required to load a 224x224, black and white image in jpg format of a grain of rice among Arborio, Basmati, Ipsala, Jasmine, and Karacadag rice varieties for recognition.
+
+It can also be accessed using `curl -X POST -F "file=@file.json" <  11:05 AM
+https://riceclassifier-375010-zhexeh6bxa-uc.a.run.app/>`
+
 
 
 
@@ -981,19 +957,35 @@ https://translation-gcp-app-jc4crsqeca-lz.a.run.app/translate/How are you doing?
 >
 > Answer:
 
-We did not manage to implement monitoring. We would like to have monitoring implemented such that over time we could measure translation accuracy (based e.g on user rating) that would inform us about the performance and hence usefullness of our model. Provided we modelled the german and english language perfectly, our model would be quite prone to data-drifting. The only real issue would be words having new meanings or new words being adapted to the languages. However, this *perfect* modelling is rarely the case in real life as the dataset for a given translation task, will ultimately only be a subset of the distribution modelling the language. This means that our model will be context dependent. A weakness derived from this could e.g. be if the training dataset was exceedingly formal and we received an input which was very informal. As such, monitoring a user-based translation accuracy score could inform when our model becomes outdated.
+We did not manage to implement monitoring. We would like to have monitoring implemented such that over time we could measure translation accuracy (based e.g on user rating) that would inform us about the performance and hence usefullness of our model. 
+
+Provided we modelled the german and english language perfectly, our model would be quite prone to data-drifting. 
+
+The only real issue would be words having new meanings or new words being adapted to the languages. 
+
+
+However, this *perfect* modelling is rarely the case in real life as the dataset for a given translation task, will ultimately only be a subset of the distribution modelling the language. 
+
+This means that our model will be context dependent. 
+
+A weakness derived from this could e.g. be if the training dataset was exceedingly formal and we received an input which was very informal. As such, monitoring a user-based translation accuracy score could inform when our model becomes outdated.
 
 
 
 
-### Question 23
-
-> **Did you manage to implement monitoring of your deployed model? If yes, explain how it works. If not, explain how**
-> **monitoring would help the longevity of your application.**
+################################################
 
 ![monitoring](figures/monitoring.png)
 
-We monitored our model in terms of application errors, billing, memory usage, and uptime check uptime failure. This allowed us to keep track of any issues that may have arisen during the operation of our application. By monitoring for errors, we were able to quickly identify and fix any bugs that were causing the application to malfunction. We also monitored billing to ensure that we were not incurring any unnecessary costs. Keeping an eye on memory usage helped us optimize the performance of our model, and uptime checks allowed us to detect and fix any issues that were causing the application to go down.
+We monitored our model in terms of 
+   application errors, 
+   billing,
+   memory usage, and 
+   uptime check uptime failure. 
+
+This allowed us to keep track of any issues that may have arisen during the operation of our application. By monitoring for errors, we were able to quickly identify and fix any bugs that were causing the application to malfunction. 
+
+We also monitored billing to ensure that we were not incurring any unnecessary costs. Keeping an eye on memory usage helped us optimize the performance of our model, and uptime checks allowed us to detect and fix any issues that were causing the application to go down.
 
 By monitoring our model in these ways, we were able to ensure the longevity of our application. By catching and fixing errors early on, we were able to prevent them from causing more significant problems down the line.
 
@@ -1008,17 +1000,6 @@ By monitoring our model in these ways, we were able to ensure the longevity of o
 
 
 
-
-
-
-
-### Question 24
-
-> **How many credits did you end up using during the project and what service was most expensive?**
-
-In total, 2 credits at the time of writing were spend during development. The most expensive service was github LFS which had "significant" bandwidth costs.
-
-![billing](figures/billing.png)
 
 
 
@@ -1039,6 +1020,15 @@ s194333 did not use any credit for this project, since she managed to use all he
 
 
 
+In total, 2 credits at the time of writing were spend during development. The most expensive service was github LFS which had "significant" bandwidth costs.
+
+![billing](figures/billing.png)
+
+
+
+
+
+
 
 
 
@@ -1051,16 +1041,17 @@ s194333 did not use any credit for this project, since she managed to use all he
 
 > In the following section we would like you to think about the general structure of your project.
 
-### Question 25
 
-> **Include a figure that describes the overall architecture of your system and what services that you make use of.**
-> **You can take inspiration from [this figure](figures/overview.png). Additionally in your own words, explain the**
-> **overall steps in figure.**
 
-![overview](figures/overview.jpg)
 
-We, as a team, used GitHub Actions to run multiple tests on our code every time we committed and pushed it to GitHub. This included using tools such as CodeCov to measure code coverage. If all tests passed, we then integrated the code into our single docker image and pushed it to the Google Container Registry. This registry allowed us to easily access, download, and use pre-built images for our applications, as well as upload and share our own images with others.
-We also used GitHub Actions to push the deployment version to Google Cloud Platform's Cloud Run. This allowed us to deploy our containerized, stateless HTTP-based service in a highly scalable and cost-effective manner. Users were able to upload images on our API interface and the query would return the label and accuracy of the prediction. We made sure that all source code was available on GitHub for users to clone. Additionally, we utilized the Weights and Biases (W&B) tool for tracking, analyzing, and visualizing our experiments. We ran experiments on our local machines and chose the best set of parameters for deployment.
+
+
+
+
+
+
+
+
 
 
 ### Question 25
@@ -1079,13 +1070,27 @@ We also used GitHub Actions to push the deployment version to Google Cloud Platf
 > Answer:
 
 ![Graphical reprsentation of architecture](figures/graphical_representation_of_architecture.png)
-The starting point of the diagram is our local pytorch application, which we wrapped in the **pytorch lightning** framework. This served as the inital steps of creating the mlops pipeline. We version-controled our project using **git** via **Github**. A new environment can be initialized using either **Conda** or **pip**. We opted to use `pipreqs` for finding the package requirements of our project, which made for seamless instantiation of the projects *requirements.txt*. We utilized `wandb` in conjunction with **pytorch lightning** for logging the 'experiments'/ training of our *NLP* model. For training configuration `wandb` performed satisfactory, hence `hydra` was omited from this project. These are the essential parts which are contained into a **docker** container. Locally the project follows the codestructure of **Cookiecutter**.
+The starting point of the diagram is our local pytorch application, which we wrapped in the **pytorch lightning** framework. 
+
+This served as the inital steps of creating the mlops pipeline. We version-controled our project using **git** via **Github**. 
+
+
+A new environment can be initialized using either **Conda** or **pip**. We opted to use `pipreqs` for finding the package requirements of our project, which made for seamless instantiation of the projects *requirements.txt*. We utilized `wandb` in conjunction with **pytorch lightning** for logging the 'experiments'/ training of our *NLP* model. For training configuration `wandb` performed satisfactory, hence `hydra` was omited from this project. These are the essential parts which are contained into a **docker** container. Locally the project follows the codestructure of **Cookiecutter**.
 
 In order to utilize the **GPC** git and dvc both provides a link from the local machine. Git furthermore enabled **Github actions** for testing the code before uploading to a remote storage. Using a **trigger** connected to the github repository we created **docker images** in **docker containers** in the cloud.
 
 When training a dataset stored in a **GCP bucket** was utilized. Information sharing and version control of the dataset was handled by utilizing **dvc**. We interfaced with our application through **Cloud Run** by using the **Fast API** framework. Finally, we didn't utilize monitoring as we had plenty of work on our hands, trying to interface with and getting our model to run on cloud.
 
 
+####################################################
+
+
+
+
+![overview](figures/overview.jpg)
+
+We, as a team, used GitHub Actions to run multiple tests on our code every time we committed and pushed it to GitHub. This included using tools such as CodeCov to measure code coverage. If all tests passed, we then integrated the code into our single docker image and pushed it to the Google Container Registry. This registry allowed us to easily access, download, and use pre-built images for our applications, as well as upload and share our own images with others.
+We also used GitHub Actions to push the deployment version to Google Cloud Platform's Cloud Run. This allowed us to deploy our containerized, stateless HTTP-based service in a highly scalable and cost-effective manner. Users were able to upload images on our API interface and the query would return the label and accuracy of the prediction. We made sure that all source code was available on GitHub for users to clone. Additionally, we utilized the Weights and Biases (W&B) tool for tracking, analyzing, and visualizing our experiments. We ran experiments on our local machines and chose the best set of parameters for deployment.
 
 
 
@@ -1097,16 +1102,9 @@ When training a dataset stored in a **GCP bucket** was utilized. Information sha
 
 
 
-### Question 26
 
-> **Discuss the overall struggles of the project. Where did you spend most time and what did you do to overcome these**
-> **challenges?**
 
-One of the main struggles our team faced during the project was managing multiple branches on our git repository. As we progressed through the project, we encountered multiple challenges that required us to create new branches to fix bugs or implement new features. However, this led to confusion and difficulty in merging the branches back into the main branch. To overcome this challenge, we implemented a strict branching strategy where we designated specific team members as branch managers to ensure that merging was done in an organized and timely manner.
 
-Another struggle we faced was installing the necessary tools for the project. The project required us to use several new technologies that we were not familiar with, such as GCP and Weights & Biases. This led to a significant amount of time spent on researching and learning how to use these tools effectively.
-
-Integrating our model into the cookie cutter structure was another challenge we faced. The cookie cutter structure provided a clear and organized file structure for the project, but it was difficult for us to understand how to properly integrate our model into it. This led to a lot of time spent on understanding the structure and determining the best way to integrate our model. To overcome this challenge, we discussed regularly to brainstorm solutions.
 
 
 ### Question 26
@@ -1121,12 +1119,35 @@ Integrating our model into the cookie cutter structure was another challenge we 
 >
 > Answer:
 
-Our first time consuming task was to download the data. This was downloaded from huggingface which took a long time. We also spent an excessive amount of time trying to train our model on cloud. Some main factors contributing to this issue, was our funding running short and having to authenticate multiple frameworks within a docker container. s194333 created the project on GCP, however she quickly (within 48 hours) ran short on funding (complementary of the course) due to operations ineracting with the *bucket* storing our data. We aren't entirely certain as to what depleted the grants, however this greatly restricted our work. From docker we needed to authenticate dvc, GCP, in addition to `wandb`. This proved tremendously cumbersome as the authentication requires certfication, which we would preferably avoid storing in the docker image. During this process we spent a lot of time debugging. Due to long building times errors didn't occur immediatly, which resulted in a lot of reapeated idle time.
+Our first time consuming task was to download the data. 
+
+This was downloaded from huggingface which took a long time. 
+
+We also spent an excessive amount of time trying to train our model on cloud. Some main factors contributing to this issue, was our funding running short and having to authenticate multiple frameworks within a docker container. s194333 created the project on GCP, however she quickly (within 48 hours) ran short on funding (complementary of the course) due to operations ineracting with the *bucket* storing our data. 
+
+
+We aren't entirely certain as to what depleted the grants, however this greatly restricted our work. 
+
+From docker we needed to authenticate dvc, GCP, in addition to `wandb`. This proved tremendously cumbersome as the authentication requires certfication, which we would preferably avoid storing in the docker image. 
+
+
+During this process we spent a lot of time debugging. Due to long building times errors didn't occur immediatly, which resulted in a lot of reapeated idle time.
 
 In general most of the tools and frameworks were relativly new for us, which resulted in a lot of google searches and unknown errors. The exercises significantly prepared us for conducting the project, however we still had a lot to learn when making the project. This challenged us in many ways, however we ultimately managed to overcome these.
 
 
 
+##################
+
+One of the main struggles our team faced during the project was managing multiple branches on our git repository. 
+
+As we progressed through the project, we encountered multiple challenges that required us to create new branches to fix bugs or implement new features. 
+
+However, this led to confusion and difficulty in merging the branches back into the main branch. To overcome this challenge, we implemented a strict branching strategy where we designated specific team members as branch managers to ensure that merging was done in an organised and timely manner.
+
+Another struggle we faced was installing the necessary tools for the project. The project required us to use several new technologies that we were not familiar with, such as GCP and Weights & Biases. This led to a significant amount of time spent on researching and learning how to use these tools effectively.
+
+Integrating our model into the cookie cutter structure was another challenge we faced. The cookie cutter structure provided a clear and organized file structure for the project, but it was difficult for us to understand how to properly integrate our model into it. This led to a lot of time spent on understanding the structure and determining the best way to integrate our model. To overcome this challenge, we discussed regularly to brainstorm solutions.
 
 
 
@@ -1142,28 +1163,6 @@ In general most of the tools and frameworks were relativly new for us, which res
 
 
 
-
-
-
-
-
-
-### Question 27
-
-> **State the individual contributions of each team member. This is required information from DTU, because we need to**
-> **make sure all members contributed actively to the project**
-
-Student s164397: used Weights & Biases to log training progress and other important metrics/artifacts in our code.
-
-Student s221813: Main responsible for the Report, created the inital DVC implementation, and later Google Cloud Storage. In particular, created a dedicated environment for the project to keep track of packages, filled out the requirements.txt file, setup version control, wrote one configuration file for our experiments, created a data storage in GCP Bucket for our data and linked this with our data version control setup.
-
-Student s174261: was responsible for version control, structure of the repositoy, version control on the data and for the creating the test suite.
-
-Student s174250: Tested, selected and trained the base model for the project. Created the inference routine, and the API/website to interact with it. Setup github actions and the deployment pipeline. Setup Google Cloud and Cloud Run to run our containers. Setup Monitoring and Alerts in Google Cloud.
-
-All members contributed to code by performing experiments locally. This includes creating and updating dockerfiles and making changes to the package requirements file. All members also contributed to writing and finalizing the report.
-
->>>>>>> 9a348b05162ab0f56881a8e7e5c15eef1eaaeb2c
 
 
 
@@ -1187,11 +1186,7 @@ All members contributed to code by performing experiments locally. This includes
 > Answer:
 
 
-Student 12433130 created github repository
-
-
-with the cookiecutter structure. Furthermore the student was in charge of testing the models using unittesting and other previously mentioned tests. Furthermore he also contributed to building the docker images in the cloud and deploying the model.
-
+Student 12433130 created github repository with the cookiecutter structure. Furthermore the student was in charge of testing the models using unittesting and other previously mentioned tests. Furthermore he also contributed to building the docker images in the cloud and deploying the model.
 
 
 Student s185231 was in charge of building the docker images in the cloud. Furthermore the student helped downloading the data and creating the scripts for training and testing the model.
@@ -1201,3 +1196,25 @@ Student s183319 heavily contributed to the report and was in charge of managing 
 Student 194333 was responsible for creating the scripts for training and prediction as well as afterwards training the model. Furthermore the student analysed the results and performed a sweep in W&B.
 
 Student s194245 was in charge of handeling the data -all the way from downloading to utilizing. Furthermore the student was in charge of utilizing google cloud for training.
+
+
+
+Student s164397: used Weights & Biases to log training progress and other important metrics/artifacts in our code.
+
+Student s221813: Main responsible for the Report, created the inital DVC implementation, and later Google Cloud Storage. In particular, created a dedicated environment for the project to keep track of packages, filled out the requirements.txt file, setup version control, wrote one configuration file for our experiments, created a data storage in GCP Bucket for our data and linked this with our data version control setup.
+
+Student s174261: was responsible for version control, structure of the repositoy, version control on the data and for the creating the test suite.
+
+Student s174250: Tested, selected and trained the base model for the project. Created the inference routine, and the API/website to interact with it. Setup github actions and the deployment pipeline. Setup Google Cloud and Cloud Run to run our containers. Setup Monitoring and Alerts in Google Cloud.
+
+All members contributed to code by performing experiments locally. This includes creating and updating dockerfiles and making changes to the package requirements file. All members also contributed to writing and finalizing the report.
+
+>>>>>>> 9a348b05162ab0f56881a8e7e5c15eef1eaaeb2c
+
+
+
+
+
+
+
+
