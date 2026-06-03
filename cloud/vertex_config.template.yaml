@@ -13,8 +13,10 @@ workerPoolSpecs:
       args:
         - >
           dvc pull -v &&
+          python -c "import torch; assert torch.cuda.is_available(),
+                      'CUDA not visible — image likely has CPU-only torch';
+                      print('CUDA OK:', torch.version.cuda)" &&
           python -m project_name.train
-          trainer.precision=bf16-mixed
           data.batch_size=4
           data.num_workers=4
           trainer.max_epochs=3

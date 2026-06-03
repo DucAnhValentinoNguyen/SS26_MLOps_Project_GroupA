@@ -14,7 +14,8 @@ metric:
 command:
   - ${env}
   - python
-  - ${program}
+  - -m
+  - project_name.train
   - ${args_no_hyphens}   # Hydra expects key=value, not --key value
 
 parameters:
@@ -29,9 +30,6 @@ parameters:
   trainer.accumulate_grad_batches:
     values: [2, 4, 8]
 
-  model.freeze_vision_encoder:
-    values: [true, false]
-
   # Keep wandb enabled for every sweep run
-  wandb.enabled:
+  trainer.wandb.enabled:
     value: true
