@@ -1,9 +1,13 @@
-FROM ghcr.io/astral-sh/uv:python3.11-bookworm AS base
+FROM --platform=linux/amd64 ghcr.io/astral-sh/uv:python3.11-bookworm AS base
+
+WORKDIR /workspace
 
 COPY uv.lock uv.lock
 COPY pyproject.toml pyproject.toml
 
 RUN uv sync --frozen --no-install-project
+
+ENV VIRTUAL_ENV=/workspace/.venv
 
 COPY src src/
 COPY configs configs/
@@ -22,6 +26,6 @@ RUN uv pip install torch==2.6.0 torchvision==0.21.0 \
 
 RUN uv pip install --no-cache-dir "dvc[gs]"
 
-ENV PATH="/.venv/bin:$PATH"
+ENV PATH="/workspace/.venv/bin:$PATH"
 
-ENTRYPOINT ["bash", "entrypoint.sh"]
+RUN dvc config core.no_scm true

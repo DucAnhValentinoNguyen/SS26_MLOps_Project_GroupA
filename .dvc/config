@@ -1,5 +1,6 @@
 [core]
     remote = gs-west4
+    no_scm = true
 ['remote "myremote"']
     url = gs://mlops_paligemma
 ['remote "gs-west4"']
