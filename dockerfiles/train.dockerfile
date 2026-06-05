@@ -20,11 +20,16 @@ COPY LICENSE LICENSE
 RUN mkdir -p models
 
 RUN uv sync --frozen
-RUN uv pip install --no-cache-dir torch==2.6.0 torchvision==0.21.0 \
-      --index-url https://download.pytorch.org/whl/cu124
+RUN uv pip install --no-cache-dir --reinstall torch==2.6.0 torchvision==0.21.0 \
+      --index-url https://download.pytorch.org/whl/cu118
 
 RUN uv pip install --no-cache-dir "dvc[gs]"
 
-ENV PATH="/workspace/.venv/bin:$PATH"
+ENV PATH="/usr/local/nvidia/bin:/workspace/.venv/bin:$PATH"
+
+# Vertex injects the GPU driver into /usr/local/nvidia/lib64 at runtime, but the
+# uv/bookworm base never puts it on the library path — so torch can't find
+# libcuda.so.1 and torch.cuda.is_available() is False even with a CUDA build.
+ENV LD_LIBRARY_PATH="/usr/local/nvidia/lib64:/usr/local/nvidia/lib"
 
 RUN dvc config core.no_scm true

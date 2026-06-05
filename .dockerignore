@@ -1,7 +1,10 @@
 .dvc/cache
-data/**
-!data/**/*.dvc
-!data/**/.gitignore
+# Keep the data/ dir + its .dvc pointers in the image; exclude only the bulk
+# DVC-tracked data (dvc pull fetches it at runtime). NOTE: Docker can't reliably
+# re-include files under a fully-excluded dir (data/** + !*.dvc fails in Cloud
+# Build), so exclude the specific data subdirs instead — mirrors .gcloudignore.
+data/processed/ScienceQA-IMG/
+data/raw/ScienceQA-IMG/
 .venv
 __pycache__
 *.pyc
@@ -9,3 +12,14 @@ wandb
 lightning_logs
 checkpoints
 outputs
+
+# secrets — never bake into the image (local docker build ignores .gcloudignore)
+.env
+.env.*
+*.env
+.dvc/config.local
+cloud/vertex_config.yaml
+
+# hygiene — large for local builds
+.git
+.dvc/tmp

@@ -1,0 +1,56 @@
+# What `gcloud builds submit` uploads to the Cloud Build staging bucket.
+#
+# WHY: once this file exists, gcloud STOPS reading .gitignore. Our .gitignore
+# ignored data/, so without this file the data/**/*.dvc pointers never got
+# uploaded and `dvc pull` found nothing at train time.
+# data/ dirs get checked out locally and are NOT tiny, so we exclude their
+# contents below and ship ONLY the sibling .dvc pointers; dvc pull fetches the
+# real data in-container from the GCS remote.
+#
+# SIDE EFFECT: because .gitignore is now ignored, anything it used to protect
+# (secrets, caches) must be re-listed below or it gets uploaded.
+
+# secrets — must never reach the staging bucket
+.env
+.env.*
+*.env
+.dvc/config.local
+# rendered by envsubst, holds the real WANDB_API_KEY / HF_TOKEN:
+cloud/vertex_config.yaml
+
+# DVC-tracked data: ship only the .dvc pointers, not the real data.
+# .gitignore used to hide these dirs, but it's disabled now that this file exists.
+data/processed/ScienceQA-IMG/
+data/raw/ScienceQA-IMG/
+
+# DVC (keep .dvc/config — it holds the GCS remote URL)
+.dvc/cache
+.dvc/tmp
+
+# python / venv / build artifacts
+.venv
+__pycache__
+*.pyc
+*.egg-info
+/build/
+/dist/
+
+# tooling caches
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+htmlcov
+
+# run artifacts
+wandb
+lightning_logs
+checkpoints
+outputs
+
+# vcs / local tooling / os
+.git
+.claude
+.DS_Store
+.idea
+.vscode
