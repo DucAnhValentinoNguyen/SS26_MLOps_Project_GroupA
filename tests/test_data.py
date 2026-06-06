@@ -418,10 +418,21 @@ class TestDataModule:
         processor = MagicMock()
         tokenizer = MagicMock()
 
-        # processor(...) returns a dict-like object with tensor values
-        processor.return_value = {"input_ids": torch.zeros(2, 10, dtype=torch.long)}
+        # processor(text=..., images=..., suffix=...) simulates the real PaliGemma
+        # processor: it returns input_ids/attention_mask plus `labels` where the
+        # image+prompt prefix and padding are masked to -100 and only the answer
+        # suffix tokens are kept. _collate now relies on the processor for labels
+        # (via suffix=) instead of building them by hand.
+        processor.return_value = {
+            "input_ids": torch.zeros(2, 10, dtype=torch.long),
+            "attention_mask": torch.ones(2, 10, dtype=torch.long),
+            "labels": torch.tensor(
+                [[-100] * 8 + [5, 6], [-100] * 8 + [7, 8]], dtype=torch.long
+            ),
+        }
 
-        # tokenizer(...) returns label encodings with pad_token_id = 0
+        # tokenizer(...) returns answer-only encodings with pad_token_id = 0
+        # (used by the test/generation collate path to build target labels).
         tokenizer.return_value = {"input_ids": torch.zeros(2, 5, dtype=torch.long)}
         tokenizer.pad_token_id = 0
 
