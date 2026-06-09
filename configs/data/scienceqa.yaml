@@ -8,5 +8,11 @@ processed_dir: data/processed
 subset: ScienceQA-IMG
 batch_size: 4
 num_workers: 2
-max_length: 256
+# PaliGemma2-224 expands "<image>" into 256 image tokens. max_length must leave
+# room for those 256 PLUS the text (prompt+hint+lecture+answer suffix); otherwise
+# truncation chops into the image tokens and the processor raises
+# "Mismatch in `image` token count" (got 254/253/242 vs required 256).
+# 512 = 256 image + 256 text headroom; long lectures only lose their tail, never
+# the image tokens.
+max_length: 512
 max_label_length: 32

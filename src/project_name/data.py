@@ -311,7 +311,9 @@ class DataModule(L.LightningDataModule):
         processor=None,
         batch_size: int = 4,
         num_workers: int = 2,
-        max_length: int = 256,
+        # Must exceed the 256 image tokens PaliGemma2-224 inserts, plus text; see
+        # configs/data/scienceqa.yaml. Too small -> image tokens get truncated.
+        max_length: int = 512,
         max_label_length: int = 32,
     ) -> None:
         """Initialize the DataModule with dataset paths and processing parameters."""

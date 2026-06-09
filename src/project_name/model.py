@@ -150,7 +150,7 @@ class PaliGemmaModule(L.LightningModule):
         trainable = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
         total = sum(p.numel() for p in self.model.parameters())
         log.info(
-            "Trai nable parameters: %.1fM / %.1fM total.",
+            "Trainable parameters: %.1fM / %.1fM total.",
             trainable / 1e6,
             total / 1e6,
         )
@@ -169,7 +169,11 @@ class PaliGemmaModule(L.LightningModule):
         Returns:
             Scalar loss tensor.
         """
-        outputs = self.model(**batch)
+        # "subjects" is per-sample metadata added by DataModule._collate for
+        # analysis; it is NOT a model input. Drop it so it does not flow into
+        # the model's **kwargs (a list[str] passed to forward).
+        model_inputs = {k: v for k, v in batch.items() if k != "subjects"}
+        outputs = self.model(**model_inputs)
         loss = outputs.loss
         self.log("train/loss", loss, on_step=True, on_epoch=True, prog_bar=True)
         return loss
@@ -181,7 +185,9 @@ class PaliGemmaModule(L.LightningModule):
             batch: Dict of tensors from DataModule._collate, including 'labels'.
             batch_idx: Index of the current batch (unused).
         """
-        outputs = self.model(**batch)
+        # Drop non-model "subjects" metadata before forward (see training_step).
+        model_inputs = {k: v for k, v in batch.items() if k != "subjects"}
+        outputs = self.model(**model_inputs)
         loss = outputs.loss
         self.log("val/loss", loss, on_step=False, on_epoch=True, prog_bar=True)
 

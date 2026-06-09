@@ -21,8 +21,12 @@ command:
 parameters:
   model.learning_rate:
     distribution: log_uniform_values
-    min: 1e-6
-    max: 1e-4
+    # ~1 decade centered (log) on the working 1e-4 baseline. Floor is above the
+    # observed-too-small 1e-5; ceiling lets the sweep explore the higher LRs
+    # LoRA often prefers (the old 1e-6..1e-4 wasted most runs on too-small LRs
+    # and couldn't search above the baseline).
+    min: 3e-5
+    max: 3e-4
 
   data.batch_size:
     values: [2, 4, 8]
