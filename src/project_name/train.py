@@ -85,7 +85,6 @@ class PredictionLogger(Callback):
         input_ids = batch["input_ids"]
         pixel_values = batch.get("pixel_values")
         attention_mask = batch.get("attention_mask")
-        labels = batch["labels"]
 
         generated_ids = pl_module.model.generate(  # type: ignore[misc]
             input_ids=input_ids,
@@ -101,9 +100,9 @@ class PredictionLogger(Callback):
             skip_special_tokens=True,
         )
 
-        labels_ids = labels.clone()
-        labels_ids[labels_ids == -100] = pl_module.processor.tokenizer.pad_token_id
-        targets = pl_module.processor.batch_decode(labels_ids, skip_special_tokens=True)
+        # Ground truth = raw answer_text from the dataset (carried through
+        # _collate), not a decode of the masked labels.
+        targets = batch["answer_texts"]
 
         # pixel_values shape: (B, C, H, W)
         for i, (pred, target) in enumerate(zip(preds, targets)):
@@ -172,6 +171,32 @@ def upload_to_gcs(local_path: Path, gcs_dir: str) -> str:
     return f"gs://{parsed.netloc}/{blob_name}"
 
 
+def upload_dir_to_gcs(local_dir: Path, gcs_dir: str) -> str:
+    """Upload every file under local_dir to gs://.../<local_dir.name>/.
+
+    Used to publish the small LoRA adapter directory (adapter weights + config +
+    processor) to the model registry / serving location.
+
+    Args:
+        local_dir: Directory whose files are uploaded recursively.
+        gcs_dir: Destination directory as a gs://bucket/prefix URI.
+
+    Returns:
+        The full gs:// URI of the uploaded directory.
+    """
+    from google.cloud import storage  # type: ignore[attr-defined]
+
+    parsed = urlparse(gcs_dir)
+    prefix = f"{parsed.path.lstrip('/')}/{local_dir.name}".lstrip("/")
+    client = storage.Client()
+    bucket = client.bucket(parsed.netloc)
+    for f in sorted(local_dir.rglob("*")):
+        if f.is_file():
+            blob = bucket.blob(f"{prefix}/{f.relative_to(local_dir).as_posix()}")
+            blob.upload_from_filename(str(f))
+    return f"gs://{parsed.netloc}/{prefix}"
+
+
 @hydra.main(version_base="1.3", config_path=_CONFIGS_DIR, config_name="train")
 def train(cfg: DictConfig) -> float:
     """Fine-tune PaliGemma2 on the preprocessed ScienceQA-IMG dataset.
@@ -205,6 +230,10 @@ def train(cfg: DictConfig) -> float:
         freeze_language_model=cfg.model.freeze_language_model,
         gradient_checkpointing=cfg.model.gradient_checkpointing,
         use_lora=cfg.model.use_lora,
+        lora_r=cfg.model.lora_r,
+        lora_alpha=cfg.model.lora_alpha,
+        lora_dropout=cfg.model.lora_dropout,
+        lora_target_modules=tuple(cfg.model.lora_target_modules),
     )
 
     log.info(
@@ -298,10 +327,31 @@ def train(cfg: DictConfig) -> float:
         best_ckpt,
         best_val_loss,
     )
-    model_dir = os.environ.get("AIP_MODEL_DIR")
-    if model_dir and best_ckpt:
-        uri = upload_to_gcs(Path(best_ckpt), model_dir)
-        log.info("Uploaded best checkpoint to %s", uri)
+
+    # Export ONLY the LoRA adapter (a few MB) for the registry / serving — NOT
+    # the ~6GB full Lightning ckpt. trainer.test(ckpt_path="best") above loaded
+    # the best weights into `model`, so it now holds them.
+    # Tag the dir with the W&B run so baseline + each sweep trial upload to a
+    # distinct GCS path instead of overwriting one another.
+    run_tag = "run"
+    if logger is not None:
+        try:
+            run_tag = logger.experiment.name or logger.experiment.id or "run"
+        except Exception:  # pragma: no cover - wandb offline / no run
+            run_tag = cfg.trainer.wandb.run_name or "run"
+    adapter_dir = Path(cfg.trainer.ckpt_dir) / f"adapter-{run_tag}"
+    if cfg.model.use_lora:
+        model.save_adapter(adapter_dir)
+        model_dir = os.environ.get("AIP_MODEL_DIR")
+        if model_dir:
+            uri = upload_dir_to_gcs(adapter_dir, model_dir)
+            log.info("Uploaded LoRA adapter to %s", uri)
+    else:
+        # No LoRA → fall back to uploading the full checkpoint file.
+        model_dir = os.environ.get("AIP_MODEL_DIR")
+        if model_dir and best_ckpt:
+            uri = upload_to_gcs(Path(best_ckpt), model_dir)
+            log.info("Uploaded full checkpoint to %s", uri)
 
     # Return val/loss
     if cfg.trainer.wandb.enabled:

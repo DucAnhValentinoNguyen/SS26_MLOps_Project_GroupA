@@ -62,12 +62,15 @@ def _make_batch(input_len: int = 10) -> dict:
         input_len: Number of tokens in input_ids (used to check new-token slicing).
 
     Returns:
-        Dict with input_ids, pixel_values, and labels tensors.
+        Dict with input_ids, pixel_values, labels tensors and the answer_texts
+        metadata list used by test_step as ground truth. "(A)" matches the mock
+        processor's default batch_decode return so default accuracy is 1.0.
     """
     return {
         "input_ids": torch.zeros(1, input_len, dtype=torch.long),
         "pixel_values": torch.zeros(1, 3, 224, 224),
         "labels": torch.zeros(1, 5, dtype=torch.long),
+        "answer_texts": ["(A)"],
     }
 
 
@@ -330,20 +333,26 @@ class TestTestStep:
         pred_tensor = mock_processor.batch_decode.call_args_list[0].args[0]
         assert pred_tensor.shape[1] == 2
 
-    def test_label_minus100_replaced_before_decode(
+    def test_targets_taken_from_answer_texts_not_labels(
         self, module: PaliGemmaModule
     ) -> None:
-        """Labels with -100 must have pad_token_id substituted before decode.
+        """Ground truth is read from batch['answer_texts'], not decoded labels.
 
-        The original labels tensor must not be mutated in-place — a clone is used.
+        Only the predictions are decoded (one batch_decode call); the labels are
+        never decoded for scoring.
         """
-        batch = _make_batch()
-        batch["labels"] = torch.tensor([[-100, 1, 2]])
-        setattr(module, "log", MagicMock())
-        module.test_step(batch, batch_idx=0)
         mock_processor = module.processor
         assert isinstance(mock_processor, MagicMock)
-        assert mock_processor.batch_decode.call_count >= 1
+        mock_processor.batch_decode.return_value = ["repel"]  # prediction
+        batch = _make_batch()
+        batch["answer_texts"] = ["repel"]  # ground truth
+        mock_log = MagicMock()
+        setattr(module, "log", mock_log)
+        module.test_step(batch, batch_idx=0)
+        # pred "repel" == target "repel" -> accuracy 1.0
+        assert mock_log.call_args_list[0].args[1] == pytest.approx(1.0)
+        # exactly one decode (predictions only) — labels are not decoded
+        assert mock_processor.batch_decode.call_count == 1
 
     def test_accuracy_is_one_when_pred_matches_target(
         self, module: PaliGemmaModule

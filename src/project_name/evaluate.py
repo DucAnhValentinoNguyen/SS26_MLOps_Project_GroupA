@@ -10,7 +10,7 @@ from rich.table import Table
 from rich import print as rprint
 
 from project_name.data import DataModule, PROCESSED_DATA_DIR, DATASET_SUBSET
-from project_name.model import PaliGemmaModule
+from project_name.predict import load_model
 
 logging.basicConfig(
     level=logging.INFO,
@@ -26,7 +26,7 @@ app = typer.Typer(
 @app.command()
 def evaluate(
     ckpt_path: Path = typer.Argument(
-        ..., help="Path to the model checkpoint (.ckpt file)."
+        ..., help="Path to the model: a LoRA adapter directory or a .ckpt file."
     ),
     processed_dir: Path = typer.Option(
         PROCESSED_DATA_DIR, help="Directory containing the processed dataset."
@@ -60,8 +60,8 @@ def evaluate(
         by_subject: Whether to report accuracy broken down by subject.
         limit_batches: Limit number of batches to evaluate (0 for no limit).
     """
-    log.info("Loading model from checkpoint: %s", ckpt_path)
-    model = PaliGemmaModule.load_from_checkpoint(ckpt_path)
+    log.info("Loading model from: %s", ckpt_path)
+    model = load_model(ckpt_path)
     model.eval()
 
     log.info(
@@ -96,7 +96,6 @@ def evaluate(
         attention_mask = batch.get("attention_mask")
         if attention_mask is not None:
             attention_mask = attention_mask.to(model.device)
-        labels = batch["labels"].to(model.device)
         subjects = batch.get("subjects", [])
 
         generated_ids = model.model.generate(  # type: ignore[misc]
@@ -113,9 +112,9 @@ def evaluate(
             skip_special_tokens=True,
         )
 
-        label_ids = labels.clone()
-        label_ids[label_ids == -100] = model.processor.tokenizer.pad_token_id
-        targets = model.processor.batch_decode(label_ids, skip_special_tokens=True)
+        # Ground truth = raw answer_text from the dataset (carried through
+        # _collate), not a decode of the masked labels.
+        targets = batch["answer_texts"]
 
         for i, (pred, target) in enumerate(zip(preds, targets)):
             is_correct = pred.strip().upper() == target.strip().upper()

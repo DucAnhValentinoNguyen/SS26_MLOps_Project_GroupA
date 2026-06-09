@@ -11,6 +11,7 @@ ENV VIRTUAL_ENV=/workspace/.venv
 
 COPY src src/
 COPY configs configs/
+COPY cloud cloud/
 COPY .dvc .dvc/
 COPY data data/
 COPY entrypoint.sh entrypoint.sh

@@ -56,6 +56,30 @@ def load_checkpoint(
     return module
 
 
+def load_model(
+    path: Path,
+    device: torch.device | None = None,
+) -> PaliGemmaModule:
+    """Load a fine-tuned model from either a LoRA adapter dir or a .ckpt file.
+
+    Dispatches on the path: a directory is treated as a saved LoRA adapter
+    (base re-downloaded from the Hub + adapter attached); a file is treated as
+    a full Lightning checkpoint. This lets serving/eval consume the small
+    adapter artifact produced by train.py while staying backward-compatible
+    with old full checkpoints.
+
+    Args:
+        path: Adapter directory or .ckpt file.
+        device: Target device. Auto-detected if None.
+
+    Returns:
+        PaliGemmaModule in eval mode on the target device.
+    """
+    if Path(path).is_dir():
+        return PaliGemmaModule.load_adapter(path, device=device)
+    return load_checkpoint(path, device=device)
+
+
 def predict_single(
     module: PaliGemmaModule,
     image: Image.Image,
@@ -116,7 +140,8 @@ def predict_single(
 @app.command()
 def predict(
     checkpoint: Path = typer.Argument(
-        ..., help="Path to the trained .ckpt checkpoint file."
+        ...,
+        help="Path to the trained model: a LoRA adapter directory or a .ckpt file.",
     ),
     question: str = typer.Option(..., "--question", "-q", help="Question text."),
     choices: str = typer.Option(
@@ -169,7 +194,7 @@ def predict(
     if lecture:
         prompt_kwargs["lecture"] = lecture
 
-    module = load_checkpoint(checkpoint)
+    module = load_model(checkpoint)
     log.info(
         "Running inference | question: %s | choices: %s | prompt_kwargs: %s",
         question,

@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from rich.logging import RichHandler
 
 from project_name.model import PaliGemmaModule
-from project_name.predict import load_checkpoint, predict_single
+from project_name.predict import load_model, predict_single
 
 logging.basicConfig(
     level=logging.INFO,
@@ -29,10 +29,11 @@ _module: PaliGemmaModule | None = None
 async def lifespan(app: FastAPI):
     """Load the PaliGemma2 checkpoint on startup and release it on shutdown.
 
-    The checkpoint path is resolved from the environment variable
-    ``CHECKPOINT_PATH``. If the variable is not set, or the path does not
-    exist, the service starts without a loaded model and every /predict call
-    will return 503 until the service is restarted with a valid path.
+    The model path is resolved from the environment variable ``CHECKPOINT_PATH``
+    and may be either a LoRA adapter directory or a full .ckpt file. If the
+    variable is not set, or the path does not exist, the service starts without
+    a loaded model and every /predict call will return 503 until the service is
+    restarted with a valid path.
 
     Args:
         app: The FastAPI application instance (required by the lifespan protocol).
@@ -42,8 +43,8 @@ async def lifespan(app: FastAPI):
     if checkpoint_env:
         checkpoint_path = Path(checkpoint_env)
         if checkpoint_path.exists():
-            log.info("Loading checkpoint from %s ...", checkpoint_path)
-            _module = load_checkpoint(checkpoint_path)
+            log.info("Loading model from %s ...", checkpoint_path)
+            _module = load_model(checkpoint_path)
             log.info("Model ready.")
         else:
             log.warning(

@@ -13,3 +13,7 @@ use_lora: true
 lora_r: 8
 lora_alpha: 16
 lora_dropout: 0.05
+# Which language-model attention projections LoRA adapts. (q,k,v,o) = full
+# attention (more capacity / "unfreeze more"); use [q_proj, v_proj] for fewer
+# trainable params. Vision tower stays frozen regardless.
+lora_target_modules: [q_proj, k_proj, v_proj, o_proj]

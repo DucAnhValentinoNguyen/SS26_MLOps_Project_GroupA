@@ -9,18 +9,15 @@ workerPoolSpecs:
       bootDiskSizeGb: 300
     containerSpec:
       imageUri: europe-west4-docker.pkg.dev/paligemma-scienceqa/mlops-images/paligemma-train:latest
-      command: ["/bin/bash", "-c"]
+      # One GPU acquisition runs the baseline AND the sweep (see the script):
+      # dvc pull -> CUDA check -> baseline fine-tune -> N-trial W&B sweep.
+      command: ["/bin/bash", "cloud/run_baseline_and_sweep.sh"]
       args:
-        - >
-          dvc pull -v &&
-          python -c "import torch; assert torch.cuda.is_available(), 'CUDA not visible - image likely has CPU-only torch'; print('CUDA OK:', torch.version.cuda)" &&
-          python -m project_name.train
-          data.batch_size=4
-          data.num_workers=4
-          trainer.max_epochs=3
-          trainer.wandb.enabled=true
-          trainer.wandb.run_name=vertex-l4-lora
+        - data.batch_size=4
+        - data.num_workers=4
       env:
+        - name: SWEEP_COUNT
+          value: "8"
         - name: WANDB_API_KEY
           value: ${WANDB_API_KEY}
         - name: HF_TOKEN

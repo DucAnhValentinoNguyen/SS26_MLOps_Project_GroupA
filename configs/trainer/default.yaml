@@ -5,7 +5,9 @@
 # trainer settings inside train() and PredictionLogger.
 
 # Lightning Trainer
-max_epochs: 5
+max_epochs: 8                  # upper bound; EarlyStopping(patience) stops sooner
+                               # on plateau. val/loss was still dropping at ep2 of
+                               # the 3-epoch baseline, so give it room.
 precision: bf16-mixed          # bf16-mixed | 16-mixed | 32
 accumulate_grad_batches: 4     # effective batch = data.batch_size * this
 gradient_clip_val: 1.0

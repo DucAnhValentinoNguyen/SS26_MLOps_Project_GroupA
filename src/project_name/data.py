@@ -383,7 +383,12 @@ class DataModule(L.LightningDataModule):
                     lecture=s.get("lecture", "") or "",
                 )
             )
-            answer_texts.append(s["answer_text"])
+            # Target = the answer LETTER (A/B/C/...), standard ScienceQA
+            # multiple-choice. Derived from the `answer` index (always present),
+            # so it is independent of the `answer_text` column (which the data on
+            # disk stores as the full choice text). The prompt lists choices as
+            # "(A) ... (B) ...", so the model learns to emit just the letter.
+            answer_texts.append(chr(ord("A") + int(s["answer"])))
             images.append(
                 s["image"] if s["image"] is not None else Image.new("RGB", (224, 224))
             )
@@ -412,17 +417,11 @@ class DataModule(L.LightningDataModule):
                 truncation=True,
                 max_length=self.max_length,
             )
-            # Answer-only labels, purely for exact-match target decoding in test.
-            answer_enc = self.processor.tokenizer(
-                answer_texts,
-                return_tensors="pt",
-                padding="longest",
-                truncation=True,
-                max_length=self.max_label_length,
-            )
-            label_ids = answer_enc["input_ids"].clone()
-            label_ids[label_ids == self.processor.tokenizer.pad_token_id] = -100
-            inputs["labels"] = label_ids
+            # Authoritative ground truth for exact-match scoring: the raw
+            # answer_text letters straight from the dataset. test_step / evaluate
+            # compare predictions against these, NOT against a fragile
+            # tokenize→mask→decode round-trip of the labels.
+            inputs["answer_texts"] = answer_texts
 
         inputs["subjects"] = subjects  # for analysis, not used by model
         return dict(inputs)
