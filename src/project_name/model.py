@@ -312,7 +312,11 @@ class PaliGemmaModule(L.LightningModule):
             )
         # use_lora=False → plain base model; we attach the *trained* adapter next.
         module = cls(model_name=model_name, use_lora=False)
-        module.model = PeftModel.from_pretrained(module.model, str(adapter_dir))
+        # PeftModel wraps the base; same intentional reassignment as __init__'s
+        # get_peft_model (self.model is typed as PaliGemmaForConditionalGeneration).
+        module.model = PeftModel.from_pretrained(  # type: ignore[assignment]
+            module.model, str(adapter_dir)
+        )
         # Prefer the processor saved next to the adapter; fall back to the base.
         if (adapter_dir / "preprocessor_config.json").exists():
             module.processor = AutoProcessor.from_pretrained(str(adapter_dir))
