@@ -125,6 +125,10 @@ class PaliGemmaModule(L.LightningModule):
             self.model.enable_input_require_grads()  # type: ignore[union-attr]
 
         if use_lora:
+            if not lora_target_modules:
+                raise ValueError(
+                    "lora_target_modules must contain at least one module name when use_lora=True."
+                )
             # Match the chosen projection layers of the language model only
             # (vision tower stays frozen). Regex is anchored so it never wraps
             # unrelated modules that happen to share a suffix.
