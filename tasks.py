@@ -12,9 +12,14 @@ PYTHON_VERSION = "3.11.0"
 # Project commands
 @task
 def preprocess_data(ctx: Context) -> None:
-    """Preprocess data."""
+    """Download and preprocess data."""
     ctx.run(
-        f"uv run src/{PROJECT_NAME}/data.py data/raw data/processed",
+        f"uv run python -m {PROJECT_NAME}.data download",
+        echo=True,
+        pty=not WINDOWS,
+    )
+    ctx.run(
+        f"uv run python -m {PROJECT_NAME}.data preprocess",
         echo=True,
         pty=not WINDOWS,
     )

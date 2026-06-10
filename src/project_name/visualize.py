@@ -109,16 +109,15 @@ def plot_error_samples(
     dataset = load_from_disk(str(processed_data_dir))
     ds_split = dataset[split]
 
-    # Build index map for fast lookup by sample id
-    id_to_row = {row["id"]: row for row in ds_split}
-
     n_cols = 3
     n_rows = (len(errors) + n_cols - 1) // n_cols
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(n_cols * 5, n_rows * 4))
     axes = axes.flatten() if n_rows * n_cols > 1 else [axes]
 
     for ax, err in zip(axes, errors):
-        row = id_to_row.get(err["id"])
+        # evaluate.py records the row index in the (unshuffled) split
+        idx = err.get("index")
+        row = ds_split[idx] if idx is not None and idx < len(ds_split) else None
         image = row["image"] if row is not None else None
 
         if image is not None:
@@ -135,7 +134,7 @@ def plot_error_samples(
                 color="gray",
             )
 
-        question = err.get("question", "")
+        question = row["question"] if row is not None else ""
         label = (
             f"Q: {question[:60]}{'...' if len(question) > 60 else ''}\n"
             f"GT: {err.get('label', '?')} | Pred: {err.get('prediction', '?')}"
@@ -143,8 +142,8 @@ def plot_error_samples(
         ax.set_xlabel(label, fontsize=8)
         ax.set_xticks([])
         ax.set_yticks([])
-        ax.splines["top"].set_linewidth(False)
-        ax.splines["right"].set_linewidth(False)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
 
     # Hide unused axes
     for ax in axes[len(errors) :]:
@@ -181,7 +180,7 @@ def plot_prediction_length_distribution(
     with results_path.open() as f:
         results = json.load(f)
 
-    lengths = [len(s.get("prediction", "").split()) for s in results["by_subject"]]
+    lengths = [len(s.get("prediction", "").split()) for s in results["samples"]]
 
     fig, ax = plt.subplots(figsize=(7, 4))
     ax.hist(lengths, bins=20, color="steelblue", edgecolor="black")

@@ -74,7 +74,7 @@ COLUMNS_TO_KEEP = [
     "hint",  # Question hint, present at inference time
     "lecture",  # Background knowledge, present at inference time
     "answer",  # Original index, used during evaluation
-    "answer_text",  # Model prediction target
+    "answer_text",  # Answer letter derived from the answer index (informational)
     "subject",  # Analyze performance by subject
     "topic",  # Analyze performance by topic
 ]
@@ -385,9 +385,10 @@ class DataModule(L.LightningDataModule):
             )
             # Target = the answer LETTER (A/B/C/...), standard ScienceQA
             # multiple-choice. Derived from the `answer` index (always present),
-            # so it is independent of the `answer_text` column (which the data on
-            # disk stores as the full choice text). The prompt lists choices as
-            # "(A) ... (B) ...", so the model learns to emit just the letter.
+            # so it works regardless of what the `answer_text` column on disk
+            # holds (letter in newly preprocessed data; full choice text in older
+            # processed datasets). The prompt lists choices as "(A) ... (B) ...",
+            # so the model learns to emit just the letter.
             answer_texts.append(chr(ord("A") + int(s["answer"])))
             images.append(
                 s["image"] if s["image"] is not None else Image.new("RGB", (224, 224))

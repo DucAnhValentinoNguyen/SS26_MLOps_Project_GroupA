@@ -81,6 +81,7 @@ def evaluate(
 
     total_correct = 0
     total_samples = 0
+    samples: list[dict] = []
     subject_stats: dict[str, dict[str, int]] = defaultdict(
         lambda: {"correct": 0, "total": 0}
     )
@@ -119,6 +120,18 @@ def evaluate(
         for i, (pred, target) in enumerate(zip(preds, targets)):
             is_correct = pred.strip().upper() == target.strip().upper()
             total_correct += int(is_correct)
+            # test_dataloader does not shuffle, so total_samples (before
+            # incrementing) is the row index in the test split — visualize.py
+            # uses it to fetch the image/question for error analysis.
+            samples.append(
+                {
+                    "index": total_samples,
+                    "subject": subjects[i] if subjects else "unknown",
+                    "prediction": pred.strip().upper(),
+                    "label": target.strip().upper(),
+                    "correct": is_correct,
+                }
+            )
             total_samples += 1
             if by_subject and subjects:
                 subj = subjects[i]
@@ -158,6 +171,7 @@ def evaluate(
         "total_correct": total_correct,
         "total_samples": total_samples,
         "accuracy": overall_acc,
+        "samples": samples,
     }
     if by_subject and subject_stats:
         results["by_subject"] = {
