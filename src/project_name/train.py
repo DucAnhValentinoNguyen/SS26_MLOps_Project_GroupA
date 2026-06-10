@@ -100,8 +100,8 @@ class PredictionLogger(Callback):
             skip_special_tokens=True,
         )
 
-        # Ground truth = raw answer_text from the dataset (carried through
-        # _collate), not a decode of the masked labels.
+        # Ground truth = answer letter derived from the dataset's `answer`
+        # index (carried through _collate), not a decode of the masked labels.
         targets = batch["answer_texts"]
 
         # pixel_values shape: (B, C, H, W)

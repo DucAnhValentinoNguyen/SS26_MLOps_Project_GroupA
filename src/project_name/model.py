@@ -207,9 +207,9 @@ class PaliGemmaModule(L.LightningModule):
     def test_step(self, batch: dict, batch_idx: int) -> None:
         """Generate predictions and compute exact-match accuracy on a test batch.
 
-        Decodes generated tokens and compares against the ground-truth
-        answer_text taken directly from the dataset (carried through _collate),
-        not by decoding the -100-masked labels.
+        Decodes generated tokens and compares against the ground-truth answer
+        letter derived from the dataset's `answer` index (carried through
+        _collate), not by decoding the -100-masked labels.
 
         Args:
             batch: Dict from DataModule._collate, including 'answer_texts'.
@@ -234,8 +234,8 @@ class PaliGemmaModule(L.LightningModule):
             skip_special_tokens=True,
         )
 
-        # Ground truth = raw answer_text from the dataset (e.g. "A"), the
-        # authoritative label — never a tokenize→mask→decode round-trip.
+        # Ground truth = answer letter derived from the dataset's `answer`
+        # index (e.g. "A") — never a tokenize→mask→decode round-trip.
         targets = batch["answer_texts"]
 
         correct = sum(

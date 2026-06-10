@@ -82,7 +82,7 @@ def _make_processed_dataset(
     """Return a minimal processed DatasetDict with all three splits.
 
     Mirrors the dataset structure after preprocessing: train split present,
-    answer_text added, always-drop columns removed.
+    always-drop columns removed.
 
     Args:
         n_train: Number of samples in the training split.
@@ -94,9 +94,8 @@ def _make_processed_dataset(
     """
 
     def _processed_sample() -> dict:
-        """Return a single preprocessed sample with answer_text and no dropped cols."""
+        """Return a single preprocessed sample with no dropped cols."""
         s = _make_sample()
-        s["answer_text"] = chr(ord("A") + s["answer"])
         for col in COLUMNS_ALWAYS_DROP:
             s.pop(col, None)
         return s
@@ -178,8 +177,10 @@ class TestPreprocess:
         assert (tmp_path / "processed" / DATASET_SUBSET).exists()
 
     @patch("project_name.data.load_from_disk")
-    def test_answer_text_added(self, mock_load: MagicMock, tmp_path: Path) -> None:
-        """answer_text is correctly derived from choices and answer index."""
+    def test_answer_index_kept_no_answer_text(
+        self, mock_load: MagicMock, tmp_path: Path
+    ) -> None:
+        """The answer index is kept; no redundant answer_text column is added."""
         (tmp_path / "raw" / DATASET_SUBSET).mkdir(parents=True)
         mock_load.return_value = _make_dataset()
 
@@ -201,8 +202,9 @@ class TestPreprocess:
             )
 
         assert result.exit_code == 0
-        assert "answer_text" in saved[0]["train"].column_names
-        assert saved[0]["train"][0]["answer_text"] in list("ABCDEFGHIJ")
+        assert "answer" in saved[0]["train"].column_names
+        assert "answer_text" not in saved[0]["train"].column_names
+        assert isinstance(saved[0]["train"][0]["answer"], int)
 
     @patch("project_name.data.load_from_disk")
     def test_always_drop_columns_removed(

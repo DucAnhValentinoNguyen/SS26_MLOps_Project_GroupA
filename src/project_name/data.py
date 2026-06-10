@@ -73,8 +73,7 @@ COLUMNS_TO_KEEP = [
     "choices",  # Choice list, used to construct prompt
     "hint",  # Question hint, present at inference time
     "lecture",  # Background knowledge, present at inference time
-    "answer",  # Original index, used during evaluation
-    "answer_text",  # Answer letter derived from the answer index (informational)
+    "answer",  # Index of the correct choice; the answer letter is derived from it
     "subject",  # Analyze performance by subject
     "topic",  # Analyze performance by topic
 ]
@@ -84,7 +83,7 @@ COLUMNS_TO_KEEP = [
 COLUMNS_ALWAYS_DROP = ["solution", "task", "grade", "category", "skill"]
 
 # Columns that can be optionally dropped via --drop-cols
-# Required columns (image, question, choices, answer, answer_text) cannot be dropped
+# Required columns (image, question, choices, answer) cannot be dropped
 COLUMNS_OPTIONAL = ["hint", "lecture", "subject", "topic"]
 
 
@@ -109,7 +108,7 @@ def preprocess(
         help=(
             "Comma-separated list of optional columns to drop. "
             f"Allowed values: {', '.join(COLUMNS_OPTIONAL)}. "
-            "Required columns (image, question, choices, answer, answer_text) "
+            "Required columns (image, question, choices, answer) "
             "cannot be dropped. "
             f"Always-dropped columns regardless of input: "
             f"{', '.join(COLUMNS_ALWAYS_DROP)}."
@@ -122,11 +121,13 @@ def preprocess(
     """Preprocess the raw ScienceQA-IMG dataset and save the processed version to disk.
 
     Processing steps:
-      1. Add answer_text field derived from choices and answer index.
-      2. Filter rows by subject if specified.
-      3. Drop columns not in the whitelist, plus any extra columns from --drop-cols.
-      4. Split the original validation set into train/val using val_ratio,
+      1. Filter rows by subject if specified.
+      2. Drop columns not in the whitelist, plus any extra columns from --drop-cols.
+      3. Split the original validation set into train/val using val_ratio,
          since the pt model requires a train split for fine-tuning.
+
+    The training target (answer letter A/B/C/...) is derived from the `answer`
+    index at collate time, so no separate answer-text column is stored.
 
     Args:
         raw_dir: Directory containing the raw dataset.
@@ -180,16 +181,7 @@ def preprocess(
         len(dataset["test"]),
     )
 
-    # Step 1: Add answer_text field derived from choices and answer index.
-    def _add_answer_text(sample: dict) -> dict:
-        """Replace integer answer index with the corresponding answer letter."""
-        sample["answer_text"] = chr(ord("A") + sample["answer"])
-        return sample
-
-    dataset = dataset.map(_add_answer_text)
-    log.info("Add 'answer_text' field to the dataset.")
-
-    # Step 2: Filter rows by subject if specified.
+    # Step 1: Filter rows by subject if specified.
     if subject:
         before = {split: len(dataset[split]) for split in dataset}
         dataset = dataset.filter(lambda x: x["subject"] == subject)
@@ -202,7 +194,7 @@ def preprocess(
                 len(dataset[split]),
             )
 
-    # Step 3: Drop unused columns to reduce storage size.
+    # Step 2: Drop unused columns to reduce storage size.
     for split in dataset:
         columns_to_drop = [
             c for c in dataset[split].column_names if c not in effective_keep
@@ -211,7 +203,7 @@ def preprocess(
             dataset[split] = dataset[split].remove_columns(columns_to_drop)
     log.info("Remaining columns: %s", dataset["validation"].column_names)
 
-    # Step 4: Split the original validation set into train/val using val_ratio,
+    # Step 3: Split the original validation set into train/val using val_ratio,
     # since the pt model requires a train split for fine-tuning.
     split_result = dataset["validation"].train_test_split(
         test_size=1 - val_ratio, seed=42
@@ -356,12 +348,12 @@ class DataModule(L.LightningDataModule):
         ~ln(vocab) (random) and the model could not learn.
 
         Test (for_train=False): no answer is placed in the input, so the model
-        must generate it; the answer is tokenized separately into ``labels``
-        only for exact-match target decoding in test_step.
+        must generate it; the ground-truth answer letters are attached as
+        ``answer_texts`` for exact-match scoring in test_step / evaluate.
 
         Args:
             samples: List of dataset samples with 'question', 'choices',
-                     'answer_text', and 'image'.
+                     'answer', and 'image'.
             for_train: Build supervised labels via suffix (train/val) or a
                        generation-only batch (test).
 
@@ -384,11 +376,9 @@ class DataModule(L.LightningDataModule):
                 )
             )
             # Target = the answer LETTER (A/B/C/...), standard ScienceQA
-            # multiple-choice. Derived from the `answer` index (always present),
-            # so it works regardless of what the `answer_text` column on disk
-            # holds (letter in newly preprocessed data; full choice text in older
-            # processed datasets). The prompt lists choices as "(A) ... (B) ...",
-            # so the model learns to emit just the letter.
+            # multiple-choice, derived from the `answer` index. The prompt lists
+            # choices as "(A) ... (B) ...", so the model learns to emit just the
+            # letter.
             answer_texts.append(chr(ord("A") + int(s["answer"])))
             images.append(
                 s["image"] if s["image"] is not None else Image.new("RGB", (224, 224))
@@ -418,8 +408,8 @@ class DataModule(L.LightningDataModule):
                 truncation=True,
                 max_length=self.max_length,
             )
-            # Authoritative ground truth for exact-match scoring: the raw
-            # answer_text letters straight from the dataset. test_step / evaluate
+            # Authoritative ground truth for exact-match scoring: the answer
+            # letters derived from the `answer` index. test_step / evaluate
             # compare predictions against these, NOT against a fragile
             # tokenize→mask→decode round-trip of the labels.
             inputs["answer_texts"] = answer_texts
