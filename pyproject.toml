@@ -30,7 +30,7 @@ dependencies = [
     "lightning>=2.6.1",
     "matplotlib>=3.10.9",
     "peft>=0.19.1",
-    "pre-commit>=4.1.0",
+    "pre-commit>=4.6.0",
     "rich>=15.0.0",
     "snakeviz>=2.2.2",
     "tensorboard>=2.20.0",
@@ -49,7 +49,7 @@ train = "project_name.train:train"
 dev = [
     "coverage==7.6.9",
     "invoke==2.2.0",
-    "pre-commit==4.1.0",
+    "pre-commit==4.6.0",
     "pytest==8.3.4",
     "ruff==0.1.3",
     "mypy==1.19.1",
