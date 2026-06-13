@@ -33,5 +33,8 @@ workerPoolSpecs:
           value: wandb-api-key
         - name: HF_SECRET_NAME
           value: hf-token
+# Explicit SA: the default managed custom-code agent has no Secret Manager
+# access (see vertex_config.template.yaml).
+serviceAccount: 581237630637-compute@developer.gserviceaccount.com
 baseOutputDirectory:
   outputUriPrefix: gs://mlops-paligemma-west4/vertex-output/paligemma-eval

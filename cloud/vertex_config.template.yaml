@@ -35,5 +35,9 @@ workerPoolSpecs:
           value: wandb-api-key
         - name: HF_SECRET_NAME
           value: hf-token
+# Without an explicit serviceAccount the container runs as Google's managed
+# custom-code agent, which has NO Secret Manager access (job 4472759288284053504
+# died on 403s). The compute SA holds secretAccessor on wandb-api-key/hf-token.
+serviceAccount: 581237630637-compute@developer.gserviceaccount.com
 baseOutputDirectory:
   outputUriPrefix: gs://mlops-paligemma-west4/vertex-output/paligemma-lora
