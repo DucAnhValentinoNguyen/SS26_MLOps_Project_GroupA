@@ -29,6 +29,15 @@ log = logging.getLogger(__name__)
 _module: PaliGemmaModule | None = None
 _load_lock = threading.Lock()
 
+# Drift detection (M27): reference = training-input feature distribution,
+# current_sample = a held-out distribution to compare against. Both live in GCS
+# so the container needs neither the dataset nor a rebuild to refresh them.
+_BUCKET = "gs://mlops-paligemma-west4/monitoring"
+REFERENCE_GCS = os.environ.get("REFERENCE_GCS", f"{_BUCKET}/reference.csv")
+CURRENT_SAMPLE_GCS = os.environ.get(
+    "CURRENT_SAMPLE_GCS", f"{_BUCKET}/current_sample.csv"
+)
+
 
 def _fetch_gcs_dir(uri: str) -> Path:
     """Download a GCS directory (e.g. the production adapter) to a temp dir.
@@ -65,6 +74,18 @@ def _fetch_gcs_dir(uri: str) -> Path:
         raise FileNotFoundError(f"No objects found under {uri}")
     log.info("Fetched %d adapter files from %s", count, uri)
     return dest_root
+
+
+def _read_gcs_csv(uri: str):
+    """Read a single gs:// CSV blob into a pandas DataFrame."""
+    import io as _io
+
+    import pandas as pd
+    from google.cloud import storage  # type: ignore[attr-defined]
+
+    parsed = urlparse(uri)
+    blob = storage.Client().bucket(parsed.netloc).blob(parsed.path.lstrip("/"))
+    return pd.read_csv(_io.StringIO(blob.download_as_text()))
 
 
 def _load_module() -> PaliGemmaModule | None:
@@ -186,6 +207,24 @@ class PredictResponse(BaseModel):
     prediction: str = Field(..., description="Predicted answer letter (A/B/C/D/...).")
 
 
+class DriftResponse(BaseModel):
+    """Response body for the /monitor/drift endpoint.
+
+    Attributes:
+        dataset_drift: Whether Evidently flags overall dataset drift.
+        n_drifted_columns: Number of input features detected as drifted.
+        n_columns: Total number of features compared.
+        reference_rows: Row count of the reference distribution.
+        current_rows: Row count of the current distribution.
+    """
+
+    dataset_drift: bool = Field(..., description="Overall drift verdict.")
+    n_drifted_columns: int = Field(..., description="Features detected as drifted.")
+    n_columns: int = Field(..., description="Features compared.")
+    reference_rows: int = Field(..., description="Reference distribution size.")
+    current_rows: int = Field(..., description="Current distribution size.")
+
+
 @app.get("/", summary="Health check")
 def root() -> dict[str, str]:
     """Return service status and whether the model is loaded.
@@ -275,6 +314,53 @@ def predict(request: PredictRequest) -> PredictResponse:
         ),
     )
     return PredictResponse(prediction=prediction)
+
+
+@app.get(
+    "/monitor/drift",
+    response_model=DriftResponse,
+    summary="Data-drift check (Evidently) on the input distribution",
+)
+def monitor_drift(
+    current_gcs: str = CURRENT_SAMPLE_GCS,
+) -> DriftResponse:
+    """Run an Evidently data-drift check: reference (training inputs) vs current.
+
+    Both feature tables are read from GCS, so the model container needs neither
+    the dataset nor a rebuild. ``current_gcs`` defaults to a held-out sample but
+    can point at a table built from collected production inputs (see the
+    structured logs emitted by /predict).
+
+    Args:
+        current_gcs: gs:// CSV of the current input-feature distribution.
+
+    Returns:
+        DriftResponse with the overall verdict and drifted-column counts.
+
+    Raises:
+        HTTPException 500: If the drift computation fails (e.g. GCS/Evidently).
+    """
+    try:
+        from evidently.metric_preset import DataDriftPreset
+        from evidently.report import Report
+
+        ref = _read_gcs_csv(REFERENCE_GCS)
+        cur = _read_gcs_csv(current_gcs)
+        report = Report(metrics=[DataDriftPreset()])
+        report.run(reference_data=ref, current_data=cur)
+        result = report.as_dict()["metrics"][0]["result"]
+    except Exception as exc:  # noqa: BLE001 - surface any failure as 500
+        raise HTTPException(
+            status_code=500, detail=f"drift check failed: {exc}"
+        ) from exc
+
+    return DriftResponse(
+        dataset_drift=bool(result["dataset_drift"]),
+        n_drifted_columns=int(result["number_of_drifted_columns"]),
+        n_columns=int(result["number_of_columns"]),
+        reference_rows=len(ref),
+        current_rows=len(cur),
+    )
 
 
 if __name__ == "__main__":

@@ -70,6 +70,11 @@ serving = [
     "evidently>=0.4,<0.7",  # stable Report/DataDriftPreset API
     "bentoml>=1.2,<2",      # specialized ML deployment (M25)
 ]
+# Drift detection in the deployed API (/monitor/drift). Synced into the API
+# image — evidently only, without the heavier frontend/load-test extras.
+monitoring = [
+    "evidently>=0.4,<0.7",
+]
 
 
 [tool.uv.sources]

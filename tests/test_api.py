@@ -178,3 +178,33 @@ def test_predict_missing_image_returns_422() -> None:
             json={"question": "Is water wet?", "choices": ["Yes", "No"]},
         )
     assert response.status_code == 422
+
+
+def test_monitor_drift_runs_evidently() -> None:
+    """Drift endpoint reads reference/current from GCS and returns a verdict."""
+    pytest.importorskip("evidently")
+    import pandas as pd
+
+    ref = pd.DataFrame(
+        {"question_char_len": [10, 12, 11, 13] * 5, "num_choices": [4] * 20}
+    )
+    cur = pd.DataFrame(
+        {"question_char_len": [9, 12, 10, 14] * 5, "num_choices": [4] * 20}
+    )
+    with patch("project_name.api._read_gcs_csv", side_effect=[ref, cur]):
+        with TestClient(app) as client:
+            response = client.get("/monitor/drift")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["n_columns"] == 2
+    assert body["reference_rows"] == 20 and body["current_rows"] == 20
+    assert isinstance(body["dataset_drift"], bool)
+
+
+def test_monitor_drift_handles_failure() -> None:
+    """Drift endpoint returns 500 when the source read fails."""
+    pytest.importorskip("evidently")
+    with patch("project_name.api._read_gcs_csv", side_effect=RuntimeError("no gcs")):
+        with TestClient(app) as client:
+            response = client.get("/monitor/drift")
+    assert response.status_code == 500

@@ -3,13 +3,14 @@ FROM ghcr.io/astral-sh/uv:python3.11-bookworm AS base
 COPY uv.lock uv.lock
 COPY pyproject.toml pyproject.toml
 
-RUN uv sync --frozen --no-install-project
+# --group monitoring adds evidently for the /monitor/drift endpoint (M27).
+RUN uv sync --frozen --no-install-project --group monitoring
 
 COPY src src/
 COPY README.md README.md
 COPY LICENSE LICENSE
 
-RUN uv sync --frozen
+RUN uv sync --frozen --group monitoring
 
 # Cloud Run injects $PORT (8080); default to 8000 locally. Shell form so the
 # variable expands at runtime. --no-sync: deps are already frozen-synced above,
