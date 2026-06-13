@@ -16,8 +16,11 @@ freeze_vision_encoder: true
 freeze_language_model: false
 gradient_checkpointing: true
 use_lora: true
-lora_r: 8
-lora_alpha: 16
+# r raised 8->16 (alpha kept at 2x r) for more adapter capacity now that we
+# train on the full ScienceQA train split (~6k img questions) instead of a
+# carved-out slice of validation. Memory cost is negligible (LoRA params tiny).
+lora_r: 16
+lora_alpha: 32
 lora_dropout: 0.05
 # Which language-model attention projections LoRA adapts. (q,k,v,o) = full
 # attention (more capacity / "unfreeze more"); use [q_proj, v_proj] for fewer

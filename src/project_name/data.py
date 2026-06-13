@@ -20,7 +20,12 @@ log = logging.getLogger(__name__)
 RAW_DATA_DIR = Path("data/raw")
 PROCESSED_DATA_DIR = Path("data/processed")
 
-DATASET_NAME = "lmms-lab/ScienceQA"
+# Source: derek-thomas/ScienceQA ships the full train/validation/test splits
+# (the lmms-lab mirror is eval-only — validation+test, no train — which forced
+# an earlier hack of carving "train" out of validation, starving the model of
+# data). We download all splits and keep only image questions (PaliGemma is
+# image-conditioned). DATASET_SUBSET is just the on-disk directory name.
+DATASET_NAME = "derek-thomas/ScienceQA"
 DATASET_SUBSET = "ScienceQA-IMG"
 
 app = typer.Typer(help="Data pipeline: download and preprocess ScienceQA dataset.")
@@ -32,11 +37,11 @@ def download(
         RAW_DATA_DIR, help="Directory to save the raw dataset."
     ),
 ) -> None:
-    """Download the ScienceQA dataset from HuggingFace Hub and save it to disk.
+    """Download ScienceQA from HuggingFace Hub, keep image questions, save to disk.
 
-    Only the image-based subset of the dataset is downloaded
-    since the model is designed to handle multimodal data.
-    Raw data is saved under raw_dir/ScienceQA-IMG/ without any modification.
+    Downloads all splits (train/validation/test) and filters each to rows that
+    carry an image, since PaliGemma is image-conditioned. Raw data is saved
+    under raw_dir/ScienceQA-IMG/ without further modification.
 
     Args:
         raw_dir: Directory to save the raw dataset.
@@ -49,21 +54,18 @@ def download(
 
     save_path.mkdir(parents=True, exist_ok=True)
 
-    log.info(
-        "Downloading '%s' subset '%s' from HuggingFace Hub...",
-        DATASET_NAME,
-        DATASET_SUBSET,
-    )
-    dataset = load_dataset(DATASET_NAME, DATASET_SUBSET)
+    log.info("Downloading '%s' from HuggingFace Hub...", DATASET_NAME)
+    dataset = load_dataset(DATASET_NAME)
+    before = {split: len(dataset[split]) for split in dataset}
+    # Keep only image questions (the image subset).
+    dataset = dataset.filter(lambda x: x["image"] is not None)
     dataset.save_to_disk(save_path)
 
-    log.info("Raw dataset saved to %s", save_path)
-    log.info(
-        "Available splits: %s | validation=%d | test=%d",
-        list(dataset.keys()),
-        len(dataset["validation"]),
-        len(dataset["test"]),
-    )
+    log.info("Raw dataset (image questions only) saved to %s", save_path)
+    for split in dataset:
+        log.info(
+            "  %s: %d -> %d (image-only)", split, before[split], len(dataset[split])
+        )
 
 
 # All columns retained by default for training and evaluation
@@ -100,9 +102,6 @@ def preprocess(
         help="Subject to filter the dataset by (e.g., 'physics', 'chemistry'). "
         "Empty keeps all.",
     ),
-    val_ratio: float = typer.Option(
-        0.8, help="Ratio of validation samples to keep (between 0 and 1)."
-    ),
     drop_cols: str = typer.Option(
         "",
         help=(
@@ -123,8 +122,7 @@ def preprocess(
     Processing steps:
       1. Filter rows by subject if specified.
       2. Drop columns not in the whitelist, plus any extra columns from --drop-cols.
-      3. Split the original validation set into train/val using val_ratio,
-         since the pt model requires a train split for fine-tuning.
+      3. Keep the dataset's real train/validation/test splits as-is.
 
     The training target (answer letter A/B/C/...) is derived from the `answer`
     index at collate time, so no separate answer-text column is stored.
@@ -134,7 +132,6 @@ def preprocess(
         processed_dir: Directory to save the processed dataset.
         subject: Subject to filter the dataset by (e.g., 'physics', 'chemistry').
                  Empty keeps all.
-        val_ratio: Ratio of validation samples to keep (between 0 and 1).
         drop_cols: Comma-separated optional columns to drop.
                    Allowed: hint, lecture, subject, topic.
         overwrite: Overwrite existing processed dataset if it already exists.
@@ -176,9 +173,8 @@ def preprocess(
     log.info("Loading raw dataset from %s ...", raw_path)
     dataset = load_from_disk(raw_path)
     log.info(
-        "Raw sizes: validation=%d | test=%d",
-        len(dataset["validation"]),
-        len(dataset["test"]),
+        "Raw sizes: %s",
+        {split: len(dataset[split]) for split in dataset},
     )
 
     # Step 1: Filter rows by subject if specified.
@@ -201,18 +197,14 @@ def preprocess(
         ]
         if columns_to_drop:
             dataset[split] = dataset[split].remove_columns(columns_to_drop)
-    log.info("Remaining columns: %s", dataset["validation"].column_names)
+    log.info("Remaining columns: %s", dataset["train"].column_names)
 
-    # Step 3: Split the original validation set into train/val using val_ratio,
-    # since the pt model requires a train split for fine-tuning.
-    split_result = dataset["validation"].train_test_split(
-        test_size=1 - val_ratio, seed=42
-    )
-
+    # Step 3: Keep the real train/validation/test splits (no carving — the
+    # source provides a genuine train split).
     final_dataset = DatasetDict(
         {
-            "train": split_result["train"],
-            "validation": split_result["test"],
+            "train": dataset["train"],
+            "validation": dataset["validation"],
             "test": dataset["test"],
         }
     )

@@ -34,7 +34,7 @@ SWEEP_ID="${SWEEP_ID:-}"
 source "$(dirname "$0")/fetch_secrets.sh"
 
 echo ">>> fetching DVC-tracked data"
-dvc pull -v
+dvc pull -v data/processed/ScienceQA-IMG.dvc   # only processed; raw is local-prep only
 
 echo ">>> verifying CUDA is visible"
 python -c "import torch; assert torch.cuda.is_available(), 'CUDA not visible - image likely has CPU-only torch'; print('CUDA OK:', torch.version.cuda)"

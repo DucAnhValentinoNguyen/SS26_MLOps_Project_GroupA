@@ -52,20 +52,25 @@ def _make_sample(
     }
 
 
-def _make_dataset(n_validation: int = 10, n_test: int = 4) -> DatasetDict:
-    """Return a minimal DatasetDict with validation and test splits.
+def _make_dataset(
+    n_train: int = 8, n_validation: int = 10, n_test: int = 4
+) -> DatasetDict:
+    """Return a minimal DatasetDict with train, validation and test splits.
 
-    Mirrors the raw dataset structure before preprocessing.
+    Mirrors the raw dataset structure before preprocessing (the source provides
+    a real train split, which preprocess now keeps as-is).
 
     Args:
+        n_train: Number of samples in the train split.
         n_validation: Number of samples in the validation split.
         n_test: Number of samples in the test split.
 
     Returns:
-        A DatasetDict with 'validation' and 'test' splits.
+        A DatasetDict with 'train', 'validation', and 'test' splits.
     """
     return DatasetDict(
         {
+            "train": Dataset.from_list([_make_sample() for _ in range(n_train)]),
             "validation": Dataset.from_list(
                 [_make_sample() for _ in range(n_validation)]
             ),
@@ -245,6 +250,7 @@ class TestPreprocess:
         ] * 4
         mock_load.return_value = DatasetDict(
             {
+                "train": Dataset.from_list(samples),
                 "validation": Dataset.from_list(samples),
                 "test": Dataset.from_list([_make_sample(subject="physics")] * 2),
             }

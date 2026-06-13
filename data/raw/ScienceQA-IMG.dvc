@@ -1,6 +1,6 @@
 outs:
-- md5: a325778161608bf6d7112940defece3d.dir
-  size: 545206954
-  nfiles: 13
+- md5: a424fb48bba26960cefe18531e5e405e.dir
+  size: 686060851
+  nfiles: 10
   hash: md5
   path: ScienceQA-IMG
