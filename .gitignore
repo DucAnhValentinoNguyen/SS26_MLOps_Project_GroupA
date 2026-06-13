@@ -190,6 +190,7 @@ make_tiny_ckpt.py
 # Manager move — watch_job.sh is intentionally TRACKED for the same reason)
 cloud/vertex_config.yaml
 cloud/vertex_eval.yaml
+cloud/vertex_optimize.yaml
 # runtime model outputs
 /models/
 .claude/

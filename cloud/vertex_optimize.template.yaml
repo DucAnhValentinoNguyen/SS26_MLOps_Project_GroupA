@@ -1,0 +1,30 @@
+# M31 optimization-benchmark job: quantization + compilation on the L4.
+# Submit via watch_job.sh AFTER the retrain frees the GPU (single L4):
+#   TEMPLATE=cloud/vertex_optimize.template.yaml RENDERED=cloud/vertex_optimize.yaml \
+#   DISPLAY_NAME=paligemma-optimize \
+#   ADAPTER_GCS=gs://mlops-paligemma-west4/models/production \
+#   bash cloud/watch_job.sh
+workerPoolSpecs:
+  - machineSpec:
+      machineType: g2-standard-8
+      acceleratorType: NVIDIA_L4
+      acceleratorCount: 1
+    replicaCount: 1
+    diskSpec:
+      bootDiskType: pd-ssd
+      bootDiskSizeGb: 300
+    containerSpec:
+      imageUri: ${IMAGE_URI}   # digest-pinned by watch_job.sh
+      command: ["/bin/bash", "cloud/run_optimize.sh"]
+      env:
+        - name: ADAPTER_GCS
+          value: "${ADAPTER_GCS}"
+        - name: GCP_PROJECT
+          value: paligemma-scienceqa
+        - name: WANDB_SECRET_NAME
+          value: wandb-api-key
+        - name: HF_SECRET_NAME
+          value: hf-token
+serviceAccount: 581237630637-compute@developer.gserviceaccount.com
+baseOutputDirectory:
+  outputUriPrefix: gs://mlops-paligemma-west4/vertex-output/paligemma-optimize
