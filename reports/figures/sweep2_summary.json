@@ -1,0 +1,64 @@
+{
+  "sweep_id": "xptwdnis",
+  "best_run": "vague-sweep-3",
+  "baseline_test_accuracy": 0.5885,
+  "winner_test_accuracy": 0.641,
+  "trials": [
+    {
+      "name": "vague-sweep-3",
+      "val_accuracy": 0.7023809552192688,
+      "val_loss": 0.5110511183738708,
+      "base_lr": 0.00018871628614989616,
+      "accum": 4
+    },
+    {
+      "name": "devout-sweep-7",
+      "val_accuracy": 0.6738095283508301,
+      "val_loss": 0.600703775882721,
+      "base_lr": 0.00017835370393709434,
+      "accum": 4
+    },
+    {
+      "name": "vague-sweep-4",
+      "val_accuracy": 0.6690475940704346,
+      "val_loss": 0.5302953124046326,
+      "base_lr": 0.00019560252579126436,
+      "accum": 8
+    },
+    {
+      "name": "comfy-sweep-1",
+      "val_accuracy": 0.6499999761581421,
+      "val_loss": 0.6479949355125427,
+      "base_lr": 0.00018776074273737223,
+      "accum": 2
+    },
+    {
+      "name": "playful-sweep-2",
+      "val_accuracy": 0.6380952596664429,
+      "val_loss": 0.648699939250946,
+      "base_lr": 0.00011118792519611422,
+      "accum": 2
+    },
+    {
+      "name": "daily-sweep-6",
+      "val_accuracy": 0.6357142925262451,
+      "val_loss": 0.5477219820022583,
+      "base_lr": 0.00018161509046519712,
+      "accum": 8
+    },
+    {
+      "name": "azure-sweep-8",
+      "val_accuracy": 0.6309523582458496,
+      "val_loss": 0.7022054195404053,
+      "base_lr": 8.309581458068023e-05,
+      "accum": 2
+    },
+    {
+      "name": "dutiful-sweep-5",
+      "val_accuracy": 0.6190476417541504,
+      "val_loss": 0.4642675817012787,
+      "base_lr": 8.219419407592344e-05,
+      "accum": 8
+    }
+  ]
+}

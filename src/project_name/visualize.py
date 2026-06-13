@@ -159,6 +159,75 @@ def plot_error_samples(
     return out_path
 
 
+def plot_sweep_comparison(
+    summary_path: Path,
+    output_dir: Path = RESULTS_DIR,
+) -> Path:
+    """Plot the sweep #2 outcome as a two-panel figure.
+
+    Left: per-trial validation accuracy with the promoted baseline's test
+    accuracy drawn as a reference line. Right: val/loss vs val/accuracy across
+    trials — they disagree (lowest val/loss is not highest val/accuracy), which
+    is why the sweep optimizes val/accuracy, not val/loss.
+
+    Args:
+        summary_path: JSON with `trials` (name, val_accuracy, val_loss,
+            base_lr, accum), `best_run`, and baseline/winner test accuracies.
+        output_dir: Directory where the figure is saved.
+
+    Returns:
+        Path to the saved figure.
+    """
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    with summary_path.open() as f:
+        summary = json.load(f)
+    trials = summary["trials"]
+    best = summary["best_run"]
+    names = [t["name"].replace("-sweep", "") for t in trials]
+    val_acc = [t["val_accuracy"] for t in trials]
+    val_loss = [t["val_loss"] for t in trials]
+    colors = ["seagreen" if t["name"] == best else "steelblue" for t in trials]
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 5))
+
+    bars = ax1.bar(names, val_acc, color=colors)
+    ax1.bar_label(bars, fmt="%.3f", padding=3, fontsize=8)
+    ax1.axhline(
+        summary["baseline_test_accuracy"],
+        color="crimson",
+        linestyle="--",
+        label=f"baseline test acc ({summary['baseline_test_accuracy']:.1%})",
+    )
+    ax1.set_ylabel("Validation accuracy")
+    ax1.set_title(
+        f"Sweep #2 trials (winner {best} → test {summary['winner_test_accuracy']:.1%})"
+    )
+    ax1.set_ylim(0, max(val_acc) * 1.15)
+    ax1.tick_params(axis="x", rotation=45)
+    ax1.legend()
+
+    ax2.scatter(val_loss, val_acc, color=colors, s=80, zorder=3)
+    for t in trials:
+        ax2.annotate(
+            t["name"].replace("-sweep", ""),
+            (t["val_loss"], t["val_accuracy"]),
+            fontsize=7,
+            xytext=(4, 4),
+            textcoords="offset points",
+        )
+    ax2.set_xlabel("val/loss (lower = 'better' by loss)")
+    ax2.set_ylabel("val/accuracy (higher = better)")
+    ax2.set_title("val/loss and val/accuracy disagree")
+
+    fig.tight_layout()
+    out_path = output_dir / "sweep2_comparison.png"
+    fig.savefig(out_path, dpi=300)
+    plt.close(fig)
+    log.info("Saved sweep comparison plot to %s", out_path)
+    return out_path
+
+
 def plot_prediction_length_distribution(
     results_path: Path,
     output_dir: Path = RESULTS_DIR,
@@ -230,6 +299,16 @@ def pred_lengths(
 ) -> None:
     """Plot the distribution of predicted answer lengths."""
     out = plot_prediction_length_distribution(results_path, output_dir)
+    typer.echo(f"Saved to {out}")
+
+
+@app.command()
+def sweep_comparison(
+    summary_path: Path = typer.Argument(..., help="Path to the sweep summary JSON."),
+    output_dir: Path = typer.Option(RESULTS_DIR, "--output-dir", "-o"),
+) -> None:
+    """Plot the sweep #2 trial comparison and the val-metric disagreement."""
+    out = plot_sweep_comparison(summary_path, output_dir)
     typer.echo(f"Saved to {out}")
 
 
