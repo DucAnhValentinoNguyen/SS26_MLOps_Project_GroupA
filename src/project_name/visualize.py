@@ -200,8 +200,10 @@ def plot_sweep_comparison(
         label=f"baseline test acc ({summary['baseline_test_accuracy']:.1%})",
     )
     ax1.set_ylabel("Validation accuracy")
+    sweep_id = summary.get("sweep_id", "")
+    label = f"Sweep {sweep_id} ".strip() if sweep_id else "Sweep"
     ax1.set_title(
-        f"Sweep #2 trials (winner {best} → test {summary['winner_test_accuracy']:.1%})"
+        f"{label} trials (winner {best} → test {summary['winner_test_accuracy']:.1%})"
     )
     ax1.set_ylim(0, max(val_acc) * 1.15)
     ax1.tick_params(axis="x", rotation=45)

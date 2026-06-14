@@ -1,0 +1,57 @@
+{
+  "sweep_id": "win9arpw",
+  "best_run": "autumn-sweep-2",
+  "baseline_test_accuracy": 0.6401,
+  "winner_test_accuracy": 0.7129,
+  "trials": [
+    {
+      "name": "sandy-sweep-7",
+      "val_accuracy": 0.7138769626617432,
+      "val_loss": 0.2736063301563263,
+      "base_lr": 0.0001333661870986711,
+      "accum": 4
+    },
+    {
+      "name": "autumn-sweep-2",
+      "val_accuracy": 0.6990939378738403,
+      "val_loss": 0.40553271770477295,
+      "base_lr": 0.00013326938099458588,
+      "accum": 4
+    },
+    {
+      "name": "misunderstood-sweep-3",
+      "val_accuracy": 0.6628516912460327,
+      "val_loss": 0.2346000075340271,
+      "base_lr": 0.00013283301081359577,
+      "accum": 4
+    },
+    {
+      "name": "daily-sweep-5",
+      "val_accuracy": 0.6618979573249817,
+      "val_loss": 0.3941494822502136,
+      "base_lr": 8.003084871757166e-05,
+      "accum": 2
+    },
+    {
+      "name": "rosy-sweep-1",
+      "val_accuracy": 0.6494992971420288,
+      "val_loss": 0.3923543393611908,
+      "base_lr": 8.360784315649852e-05,
+      "accum": 4
+    },
+    {
+      "name": "sunny-sweep-6",
+      "val_accuracy": 0.633762538433075,
+      "val_loss": 0.23278211057186127,
+      "base_lr": 9.092441846662836e-05,
+      "accum": 4
+    },
+    {
+      "name": "neat-sweep-4",
+      "val_accuracy": 0.5712923407554626,
+      "val_loss": 0.3282712697982788,
+      "base_lr": 0.00018182476091653643,
+      "accum": 2
+    }
+  ]
+}
