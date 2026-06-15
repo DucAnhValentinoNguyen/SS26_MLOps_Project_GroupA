@@ -1,0 +1,26 @@
+{
+  "n_samples": 8,
+  "results": [
+    {
+      "mode": "bf16",
+      "load_s": 28.0,
+      "latency_s_per_batch": 0.72,
+      "latency_s_per_sample": 0.09,
+      "peak_gpu_gb": 6.87
+    },
+    {
+      "mode": "int4",
+      "load_s": 3.9,
+      "latency_s_per_batch": 0.787,
+      "latency_s_per_sample": 0.098,
+      "peak_gpu_gb": 3.38
+    },
+    {
+      "mode": "bf16+compile",
+      "load_s": 3.4,
+      "latency_s_per_batch": 0.717,
+      "latency_s_per_sample": 0.09,
+      "peak_gpu_gb": 8.26
+    }
+  ]
+}

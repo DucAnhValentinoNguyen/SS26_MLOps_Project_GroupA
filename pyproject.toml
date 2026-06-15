@@ -62,13 +62,16 @@ dev = [
     "pytest-timeout>=2.4.0",
     "google-cloud-aiplatform>=1.154.0",
 ]
-# Local ops/serving extras (frontend, load testing, drift); not needed in the
-# training or API images.
+# Local ops/serving extras (load testing, drift, BentoML); not needed in the
+# training or API images. NOTE: the Streamlit frontend is deliberately NOT here
+# — streamlit's Starlette-based server pins a newer `starlette` than FastAPI
+# does, so they can't share one env. frontend.py imports no project code, so it
+# is launched standalone via `uvx` instead (see docs/source/usage.md).
 serving = [
-    "streamlit>=1.40.0",
     "locust>=2.32.0",
     "evidently>=0.4,<0.7",  # stable Report/DataDriftPreset API
     "bentoml>=1.2,<2",      # specialized ML deployment (M25)
+    "google-cloud-logging>=3.0",  # drift `collect`: read /predict logs (M27)
 ]
 # Drift detection in the deployed API (/monitor/drift). Synced into the API
 # image — evidently only, without the heavier frontend/load-test extras.

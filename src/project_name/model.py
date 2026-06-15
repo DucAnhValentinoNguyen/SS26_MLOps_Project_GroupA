@@ -1,6 +1,7 @@
 """Defines the model architecture for the project."""
 
 import logging
+import re
 from pathlib import Path
 
 import lightning as L
@@ -50,6 +51,28 @@ def build_prompt(
         parts.append(f"Lecture: {lecture}")
     parts.append(f"Choices: {choices_str}")
     return " ".join(parts)
+
+
+def extract_answer_letter(text: str) -> str:
+    """Extract the predicted choice letter from generated (or target) text.
+
+    The model is trained to emit a bare letter ("A"), but greedy generation
+    with a few tokens of headroom can wrap it ("(A)", "A.", "A) ...") or repeat
+    it ("AA"). Strict string equality would score those wrong even when the
+    chosen letter is right, so we take the first ASCII letter as the answer.
+    Returns "" when there is no letter (e.g. an empty generation), which never
+    matches a valid target. Applying this to BOTH sides can only turn a
+    previously-wrong match right, never the reverse, so it cannot inflate a
+    score relative to strict matching on already-correct cases.
+
+    Args:
+        text: Raw decoded generation, or a ground-truth answer letter.
+
+    Returns:
+        The first A–Z letter uppercased, or "" if the text has none.
+    """
+    match = re.search(r"[A-Za-z]", text)
+    return match.group(0).upper() if match else ""
 
 
 class PaliGemmaModule(L.LightningModule):
@@ -140,7 +163,21 @@ class PaliGemmaModule(L.LightningModule):
                 lora_dropout=lora_dropout,
                 bias="none",
             )
-            self.model = get_peft_model(self.model, lora_config)  # type: ignore[assignment]
+            # PEFT raises ValueError("Target modules ... not found in the base
+            # model") when target_re matches nothing, so a stale regex fails
+            # loudly rather than silently training zero LoRA params. Re-raise
+            # with the actual regex so the cause is obvious if the base model's
+            # projection-layer names ever change.
+            try:
+                self.model = get_peft_model(self.model, lora_config)  # type: ignore[assignment]
+            except ValueError as exc:
+                if "not found" in str(exc).lower():
+                    raise ValueError(
+                        f"LoRA target_modules regex {target_re!r} matched no "
+                        "modules in the base model — the projection-layer names "
+                        "may have changed across transformers/PEFT versions."
+                    ) from exc
+                raise
 
             # log case and adapter shape of every module LoRA actually wrapped
             for name, module in self.model.named_modules():
@@ -217,7 +254,13 @@ class PaliGemmaModule(L.LightningModule):
         }
         outputs = self.model(**model_inputs)
         loss = outputs.loss
-        self.log("val/loss", loss, on_step=False, on_epoch=True, prog_bar=True)
+        # batch_size lets Lightning weight the epoch mean by samples, so a
+        # smaller final batch does not get equal weight to a full one (the
+        # ~1-sample test_step vs evaluate.py gap came from unweighted means).
+        bs = len(batch["answer_texts"])
+        self.log(
+            "val/loss", loss, on_step=False, on_epoch=True, prog_bar=True, batch_size=bs
+        )
 
         acc = self._generation_exact_match(
             input_ids=batch["gen_input_ids"],
@@ -225,7 +268,14 @@ class PaliGemmaModule(L.LightningModule):
             pixel_values=batch.get("pixel_values"),
             targets=batch["answer_texts"],
         )
-        self.log("val/accuracy", acc, on_step=False, on_epoch=True, prog_bar=True)
+        self.log(
+            "val/accuracy",
+            acc,
+            on_step=False,
+            on_epoch=True,
+            prog_bar=True,
+            batch_size=bs,
+        )
 
     def test_step(self, batch: dict, batch_idx: int) -> None:
         """Generate predictions and compute exact-match accuracy on a test batch.
@@ -245,7 +295,14 @@ class PaliGemmaModule(L.LightningModule):
             pixel_values=batch.get("pixel_values"),
             targets=batch["answer_texts"],
         )
-        self.log("test/accuracy", acc, on_step=False, on_epoch=True, prog_bar=True)
+        self.log(
+            "test/accuracy",
+            acc,
+            on_step=False,
+            on_epoch=True,
+            prog_bar=True,
+            batch_size=len(batch["answer_texts"]),
+        )
 
     def _generation_exact_match(
         self,
@@ -282,7 +339,8 @@ class PaliGemmaModule(L.LightningModule):
         )
 
         correct = sum(
-            p.strip().upper() == t.strip().upper() for p, t in zip(preds, targets)
+            extract_answer_letter(p) == extract_answer_letter(t)
+            for p, t in zip(preds, targets)
         )
         return correct / len(preds)
 

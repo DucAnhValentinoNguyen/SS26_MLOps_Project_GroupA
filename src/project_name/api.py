@@ -26,6 +26,24 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
+
+def _log_prediction_event(event: dict) -> None:
+    """Emit one structured prediction event as a single-line JSON to stdout.
+
+    Written directly to stdout, NOT through the Rich-formatted app logger: Rich
+    renders at a fixed 80-column width and Cloud Run captures each wrapped
+    visual line as a SEPARATE log entry, so a long event line is truncated and
+    fragmented across entries (and gets a right-aligned ``api.py:NNN`` suffix) —
+    which makes it impossible for ``monitoring.collect`` to reassemble. A lone
+    single-line JSON object is instead parsed by Cloud Run into
+    ``LogEntry.jsonPayload`` (with ``severity`` lifted out), and read back
+    intact by collect. The ``message`` key gives the Logs Explorer a readable
+    summary without affecting the parsed payload.
+    """
+    record = {"severity": "INFO", "message": "prediction", **event}
+    print(json.dumps(record), flush=True)
+
+
 _module: PaliGemmaModule | None = None
 _load_lock = threading.Lock()
 
@@ -34,6 +52,12 @@ _load_lock = threading.Lock()
 # so the container needs neither the dataset nor a rebuild to refresh them.
 _BUCKET = "gs://mlops-paligemma-west4/monitoring"
 REFERENCE_GCS = os.environ.get("REFERENCE_GCS", f"{_BUCKET}/reference.csv")
+# Real collected production inputs (materialised from /predict logs by
+# `python -m project_name.monitoring collect`). This is the default "current"
+# distribution so the endpoint is not a self-comparison once traffic exists.
+PRODUCTION_GCS = os.environ.get("PRODUCTION_GCS", f"{_BUCKET}/current_production.csv")
+# Held-out demo distribution used only as a fallback before any production
+# data has been collected (keeps the endpoint working out of the box).
 CURRENT_SAMPLE_GCS = os.environ.get(
     "CURRENT_SAMPLE_GCS", f"{_BUCKET}/current_sample.csv"
 )
@@ -86,6 +110,42 @@ def _read_gcs_csv(uri: str):
     parsed = urlparse(uri)
     blob = storage.Client().bucket(parsed.netloc).blob(parsed.path.lstrip("/"))
     return pd.read_csv(_io.StringIO(blob.download_as_text()))
+
+
+def _resolve_current(current_gcs: str | None):
+    """Pick the 'current' distribution for the drift check and report its URI.
+
+    Priority: an explicit ``current_gcs`` override, else the collected
+    production table (PRODUCTION_GCS) when it exists and is non-empty, else the
+    held-out demo sample (CURRENT_SAMPLE_GCS). The fallback chain means the
+    endpoint defaults to real production inputs once any have been collected,
+    instead of silently self-comparing two slices of the same dataset.
+
+    Args:
+        current_gcs: Optional explicit gs:// CSV override.
+
+    Returns:
+        Tuple of (DataFrame, gs:// URI actually used).
+    """
+    if current_gcs:
+        return _read_gcs_csv(current_gcs), current_gcs
+    try:
+        df = _read_gcs_csv(PRODUCTION_GCS)
+        if len(df) > 0:
+            return df, PRODUCTION_GCS
+        log.warning(
+            "Production drift table %s is empty — falling back to %s",
+            PRODUCTION_GCS,
+            CURRENT_SAMPLE_GCS,
+        )
+    except Exception as exc:  # noqa: BLE001 - any read failure -> fall back
+        log.warning(
+            "No production drift table at %s (%s) — falling back to %s",
+            PRODUCTION_GCS,
+            exc,
+            CURRENT_SAMPLE_GCS,
+        )
+    return _read_gcs_csv(CURRENT_SAMPLE_GCS), CURRENT_SAMPLE_GCS
 
 
 def _load_module() -> PaliGemmaModule | None:
@@ -216,6 +276,7 @@ class DriftResponse(BaseModel):
         n_columns: Total number of features compared.
         reference_rows: Row count of the reference distribution.
         current_rows: Row count of the current distribution.
+        current_source: gs:// URI of the current distribution actually used.
     """
 
     dataset_drift: bool = Field(..., description="Overall drift verdict.")
@@ -223,6 +284,7 @@ class DriftResponse(BaseModel):
     n_columns: int = Field(..., description="Features compared.")
     reference_rows: int = Field(..., description="Reference distribution size.")
     current_rows: int = Field(..., description="Current distribution size.")
+    current_source: str = Field(..., description="gs:// URI of the current table used.")
 
 
 @app.get("/", summary="Health check")
@@ -296,22 +358,19 @@ def predict(request: PredictRequest) -> PredictResponse:
         **prompt_kwargs,
     )
 
-    # Input-output collection (M27): one structured line per prediction ->
+    # Input-output collection (M27): one structured JSON line per prediction ->
     # Cloud Logging, queryable later for data-drift monitoring. The image bytes
     # are not logged (size); its dimensions are.
-    log.info(
-        "prediction %s",
-        json.dumps(
-            {
-                "event": "prediction",
-                "question": request.question,
-                "n_choices": len(request.choices),
-                "hint": bool(request.hint),
-                "lecture": bool(request.lecture),
-                "image_px": list(image.size),
-                "prediction": prediction,
-            }
-        ),
+    _log_prediction_event(
+        {
+            "event": "prediction",
+            "question": request.question,
+            "n_choices": len(request.choices),
+            "hint": bool(request.hint),
+            "lecture": bool(request.lecture),
+            "image_px": list(image.size),
+            "prediction": prediction,
+        }
     )
     return PredictResponse(prediction=prediction)
 
@@ -322,20 +381,27 @@ def predict(request: PredictRequest) -> PredictResponse:
     summary="Data-drift check (Evidently) on the input distribution",
 )
 def monitor_drift(
-    current_gcs: str = CURRENT_SAMPLE_GCS,
+    current_gcs: str | None = None,
 ) -> DriftResponse:
     """Run an Evidently data-drift check: reference (training inputs) vs current.
 
     Both feature tables are read from GCS, so the model container needs neither
-    the dataset nor a rebuild. ``current_gcs`` defaults to a held-out sample but
-    can point at a table built from collected production inputs (see the
-    structured logs emitted by /predict).
+    the dataset nor a rebuild. With no ``current_gcs`` the endpoint compares
+    against the collected production inputs (PRODUCTION_GCS, materialised from
+    the /predict logs by ``python -m project_name.monitoring collect``), falling
+    back to a held-out demo sample only until production data exists. Pass
+    ``current_gcs`` to compare against an explicit table.
+
+    The comparison is restricted to the columns both tables share, so a
+    production table that lacks a train-only column (e.g. ``subject``, unknown
+    at inference time) does not error or register as spurious drift.
 
     Args:
-        current_gcs: gs:// CSV of the current input-feature distribution.
+        current_gcs: Optional gs:// CSV of the current input-feature distribution.
 
     Returns:
-        DriftResponse with the overall verdict and drifted-column counts.
+        DriftResponse with the overall verdict, drifted-column counts, and the
+        gs:// URI of the current distribution that was actually used.
 
     Raises:
         HTTPException 500: If the drift computation fails (e.g. GCS/Evidently).
@@ -345,7 +411,11 @@ def monitor_drift(
         from evidently.report import Report
 
         ref = _read_gcs_csv(REFERENCE_GCS)
-        cur = _read_gcs_csv(current_gcs)
+        cur, source = _resolve_current(current_gcs)
+        # Compare only on shared columns (production inputs can't carry
+        # train-only columns like subject).
+        common = [c for c in ref.columns if c in cur.columns]
+        ref, cur = ref[common], cur[common]
         report = Report(metrics=[DataDriftPreset()])
         report.run(reference_data=ref, current_data=cur)
         result = report.as_dict()["metrics"][0]["result"]
@@ -360,6 +430,7 @@ def monitor_drift(
         n_columns=int(result["number_of_columns"]),
         reference_rows=len(ref),
         current_rows=len(cur),
+        current_source=source,
     )
 
 

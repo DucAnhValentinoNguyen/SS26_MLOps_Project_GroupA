@@ -65,7 +65,7 @@ def _load(adapter_dir: Path, mode: str):
     if mode != "int4":
         model = model.to("cuda")
     if mode == "bf16+compile":
-        model = torch.compile(model)
+        model = torch.compile(model)  # type: ignore[assignment]
     model.eval()
     return model, time.time() - t
 
@@ -79,7 +79,8 @@ def benchmark(
 ) -> None:
     """Benchmark bf16 vs int4 vs bf16+compile and save a results table."""
     if not torch.cuda.is_available():
-        raise typer.Exit("CUDA required (4-bit + meaningful latency need a GPU).")
+        typer.echo("CUDA required (4-bit + meaningful latency need a GPU).", err=True)
+        raise typer.Exit(code=1)
 
     batch = _sample_batch(adapter_dir, n_samples)
     gen_kwargs = dict(

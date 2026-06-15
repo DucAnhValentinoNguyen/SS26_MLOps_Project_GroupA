@@ -1,0 +1,62 @@
+=== top 25 by cumulative time ===
+         616167 function calls (607767 primitive calls) in 2.285 seconds
+
+   Ordered by: cumulative time
+   List reduced from 318 to 25 due to restriction <25>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+  600/200    0.001    0.000    2.285    0.011 {built-in method builtins.next}
+      200    0.001    0.000    2.285    0.011 /Users/yuxinliu/.venvs/mlops/lib/python3.11/site-packages/torch/utils/data/dataloader.py:703(__next__)
+      200    0.002    0.000    2.265    0.011 /Users/yuxinliu/.venvs/mlops/lib/python3.11/site-packages/torch/utils/data/dataloader.py:762(_next_data)
+      200    0.000    0.000    2.263    0.011 /Users/yuxinliu/.venvs/mlops/lib/python3.11/site-packages/torch/utils/data/_utils/fetch.py:47(fetch)
+      200    0.001    0.000    1.137    0.006 /Users/yuxinliu/Desktop/M2/MLops/src/project_name/data.py:413(_collate_train)
+      200    0.011    0.000    1.137    0.006 /Users/yuxinliu/Desktop/M2/MLops/src/project_name/data.py:332(_collate)
+      200    0.000    0.000    1.125    0.006 /Users/yuxinliu/.venvs/mlops/lib/python3.11/site-packages/datasets/arrow_dataset.py:3159(__getitems__)
+      200    0.002    0.000    1.123    0.006 /Users/yuxinliu/.venvs/mlops/lib/python3.11/site-packages/datasets/arrow_dataset.py:3152(__getitem__)
+      200    0.001    0.000    1.122    0.006 /Users/yuxinliu/.venvs/mlops/lib/python3.11/site-packages/datasets/arrow_dataset.py:3124(_getitem)
+      200    0.007    0.000    1.121    0.006 /Users/yuxinliu/.venvs/mlops/lib/python3.11/site-packages/transformers/models/paligemma/processing_paligemma.py:128(__call__)
+      200    0.000    0.000    1.111    0.006 /Users/yuxinliu/.venvs/mlops/lib/python3.11/site-packages/datasets/formatting/formatting.py:621(format_table)
+      200    0.000    0.000    1.110    0.006 /Users/yuxinliu/.venvs/mlops/lib/python3.11/site-packages/datasets/formatting/formatting.py:409(__call__)
+      200    0.000    0.000    1.110    0.006 /Users/yuxinliu/.venvs/mlops/lib/python3.11/site-packages/datasets/formatting/formatting.py:468(format_batch)
+      200    0.000    0.000    1.091    0.005 /Users/yuxinliu/.venvs/mlops/lib/python3.11/site-packages/datasets/formatting/formatting.py:233(decode_batch)
+      200    0.001    0.000    1.091    0.005 /Users/yuxinliu/.venvs/mlops/lib/python3.11/site-packages/datasets/features/features.py:2237(decode_batch)
+      200    0.001    0.000    1.090    0.005 /Users/yuxinliu/.venvs/mlops/lib/python3.11/site-packages/datasets/features/features.py:2253(<listcomp>)
+      800    0.001    0.000    1.089    0.001 /Users/yuxinliu/.venvs/mlops/lib/python3.11/site-packages/datasets/features/features.py:1465(decode_nested_example)
+      800    0.003    0.000    1.088    0.001 /Users/yuxinliu/.venvs/mlops/lib/python3.11/site-packages/datasets/features/image.py:139(decode_example)
+     2400    0.007    0.000    1.052    0.000 /Users/yuxinliu/.venvs/mlops/lib/python3.11/site-packages/PIL/ImageFile.py:291(load)
+     1284    1.017    0.001    1.017    0.001 {method 'decode' of 'ImagingDecoder' objects}
+      200    0.000    0.000    0.630    0.003 /Users/yuxinliu/.venvs/mlops/lib/python3.11/site-packages/transformers/image_processing_utils.py:215(__call__)
+      200    0.003    0.000    0.630    0.003 /Users/yuxinliu/.venvs/mlops/lib/python3.11/site-packages/transformers/image_processing_utils.py:382(preprocess)
+      200    0.002    0.000    0.612    0.003 /Users/yuxinliu/.venvs/mlops/lib/python3.11/site-packages/transformers/image_processing_utils.py:297(_preprocess_image_like_inputs)
+      200    0.003    0.000    0.500    0.002 /Users/yuxinliu/.venvs/mlops/lib/python3.11/site-packages/transformers/image_processing_backends.py:379(_preprocess)
+      748    0.002    0.000    0.366    0.000 /Users/yuxinliu/.venvs/mlops/lib/python3.11/site-packages/transformers/image_processing_backends.py:218(resize)
+
+
+
+=== top 20 by total (self) time ===
+         616167 function calls (607767 primitive calls) in 2.285 seconds
+
+   Ordered by: internal time
+   List reduced from 318 to 20 due to restriction <20>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+     1284    1.017    0.001    1.017    0.001 {method 'decode' of 'ImagingDecoder' objects}
+      748    0.341    0.000    0.341    0.000 {built-in method torch._C._nn._upsample_bicubic2d_aa}
+      200    0.320    0.002    0.320    0.002 {method 'encode_batch' of 'tokenizers.Tokenizer' objects}
+     1148    0.084    0.000    0.084    0.000 {built-in method torch.stack}
+      600    0.069    0.000    0.069    0.000 {built-in method torch.tensor}
+     6327    0.051    0.000    0.051    0.000 {method 'encode' of 'ImagingEncoder' objects}
+     1200    0.031    0.000    0.107    0.000 {built-in method numpy.array}
+      200    0.018    0.000    0.019    0.000 /Users/yuxinliu/.venvs/mlops/lib/python3.11/site-packages/datasets/formatting/formatting.py:149(extract_batch)
+      200    0.013    0.000    0.013    0.000 {method 'to' of 'torch._C.TensorBase' objects}
+      200    0.011    0.000    0.011    0.000 {built-in method torch._ops.profiler._record_function_enter_new}
+      200    0.011    0.000    1.137    0.006 /Users/yuxinliu/Desktop/M2/MLops/src/project_name/data.py:332(_collate)
+      200    0.009    0.000    0.009    0.000 {method 'sub' of 'torch._C.TensorBase' objects}
+   139384    0.009    0.000    0.011    0.000 {built-in method builtins.isinstance}
+      200    0.009    0.000    0.009    0.000 {method 'div_' of 'torch._C.TensorBase' objects}
+      800    0.009    0.000    0.009    0.000 {built-in method PIL._imaging.new}
+      200    0.009    0.000    0.033    0.000 /Users/yuxinliu/.venvs/mlops/lib/python3.11/site-packages/transformers/processing_utils.py:1217(_merge_kwargs)
+9600/8000    0.008    0.000    0.021    0.000 /Users/yuxinliu/.venvs/mlops/lib/python3.11/site-packages/huggingface_hub/dataclasses.py:460(type_validator)
+      800    0.008    0.000    0.008    0.000 {method 'join' of 'bytes' objects}
+     2400    0.007    0.000    1.052    0.000 /Users/yuxinliu/.venvs/mlops/lib/python3.11/site-packages/PIL/ImageFile.py:291(load)
+      800    0.007    0.000    0.007    0.000 /Users/yuxinliu/.venvs/mlops/lib/python3.11/site-packages/transformers/tokenization_utils_tokenizers.py:670(_convert_encoding)

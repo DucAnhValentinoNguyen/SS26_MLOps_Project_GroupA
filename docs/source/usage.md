@@ -51,9 +51,21 @@ uv run python -m project_name.predict checkpoints/adapter-production \
 CHECKPOINT_PATH=checkpoints/adapter-production PREDICT_DEVICE=cpu \
   uv run uvicorn project_name.api:app --port 8000
 
-# Streamlit frontend over the API
+# Streamlit frontend over the API — launched standalone via uvx (it imports no
+# project code, and Streamlit's Starlette server conflicts with FastAPI's
+# pinned starlette, so it is kept out of the project env on purpose).
 API_URL=http://localhost:8000 \
-  uv run --group serving streamlit run src/project_name/frontend.py
+  uvx --with requests --with pillow \
+  streamlit run src/project_name/frontend.py
+```
+
+Point `API_URL` at the deployed Cloud Run URL instead to drive the live service.
+
+There is also a shell demo of the deployed API (health → predict → drift):
+
+```bash
+./cloud/demo_api.sh                              # auto-uses test sample 0
+./cloud/demo_api.sh img.png "Question?" "a,b,c"  # bring your own sample
 ```
 
 ## Deploy to Cloud Run

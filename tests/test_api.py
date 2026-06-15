@@ -112,6 +112,45 @@ def test_predict_returns_prediction() -> None:
     assert response.json()["prediction"] == "A"
 
 
+def test_predict_emits_parseable_single_line_event(capsys) -> None:
+    """The /predict structured event is one JSON line the collector can parse.
+
+    Regression for the live drift-loop break: the event used to go through the
+    Rich logger, which wrapped the long line at 80 cols so Cloud Run split it
+    into fragmented entries that monitoring.collect could never reassemble. It
+    must now be a single-line JSON readable end-to-end by _parse_log_entry ->
+    _features_from_log.
+    """
+    from project_name.monitoring import _features_from_log, _parse_log_entry
+
+    with (
+        patch("project_name.api._module", new=object()),
+        patch("project_name.api.predict_single", return_value="A"),
+    ):
+        with TestClient(app) as client:
+            client.post(
+                "/predict",
+                json={
+                    "question": "Is water wet?",
+                    "choices": ["Yes", "No"],
+                    "image_b64": VALID_IMAGE_B64,
+                },
+            )
+
+    event_lines = [
+        ln
+        for ln in capsys.readouterr().out.splitlines()
+        if '"event": "prediction"' in ln
+    ]
+    assert len(event_lines) == 1, "exactly one single-line prediction event expected"
+    payload = _parse_log_entry(event_lines[0])
+    assert payload is not None and payload["event"] == "prediction"
+    feats = _features_from_log(payload)
+    assert feats is not None
+    assert feats["num_choices"] == 2
+    assert "subject" not in feats
+
+
 def test_predict_with_hint_and_lecture() -> None:
     """Predict endpoint correctly forwards hint and lecture when provided."""
     with (
@@ -199,6 +238,9 @@ def test_monitor_drift_runs_evidently() -> None:
     assert body["n_columns"] == 2
     assert body["reference_rows"] == 20 and body["current_rows"] == 20
     assert isinstance(body["dataset_drift"], bool)
+    # With no override and a non-empty production table, it compares against
+    # the collected production inputs, not the demo self-comparison sample.
+    assert body["current_source"].endswith("current_production.csv")
 
 
 def test_monitor_drift_handles_failure() -> None:
@@ -208,3 +250,63 @@ def test_monitor_drift_handles_failure() -> None:
         with TestClient(app) as client:
             response = client.get("/monitor/drift")
     assert response.status_code == 500
+
+
+class TestResolveCurrent:
+    """Unit tests for the current-distribution fallback chain (#4)."""
+
+    def test_explicit_override_wins(self) -> None:
+        """An explicit current_gcs is read directly and reported as the source."""
+        import pandas as pd
+
+        from project_name import api
+
+        with patch(
+            "project_name.api._read_gcs_csv", return_value=pd.DataFrame({"x": [1]})
+        ) as mock_read:
+            df, source = api._resolve_current("gs://b/explicit.csv")
+        assert source == "gs://b/explicit.csv"
+        assert len(df) == 1
+        mock_read.assert_called_once_with("gs://b/explicit.csv")
+
+    def test_prefers_nonempty_production(self) -> None:
+        """With no override, a non-empty production table is used."""
+        import pandas as pd
+
+        from project_name import api
+
+        with patch(
+            "project_name.api._read_gcs_csv", return_value=pd.DataFrame({"x": [1, 2]})
+        ):
+            _, source = api._resolve_current(None)
+        assert source == api.PRODUCTION_GCS
+
+    def test_falls_back_when_production_missing(self) -> None:
+        """A missing/erroring production table falls back to the demo sample."""
+        import pandas as pd
+
+        from project_name import api
+
+        def fake(uri: str):
+            if uri == api.PRODUCTION_GCS:
+                raise FileNotFoundError("no production data yet")
+            return pd.DataFrame({"x": [1]})
+
+        with patch("project_name.api._read_gcs_csv", side_effect=fake):
+            _, source = api._resolve_current(None)
+        assert source == api.CURRENT_SAMPLE_GCS
+
+    def test_falls_back_when_production_empty(self) -> None:
+        """An empty production table also falls back to the demo sample."""
+        import pandas as pd
+
+        from project_name import api
+
+        def fake(uri: str):
+            if uri == api.PRODUCTION_GCS:
+                return pd.DataFrame({"x": []})
+            return pd.DataFrame({"x": [1]})
+
+        with patch("project_name.api._read_gcs_csv", side_effect=fake):
+            _, source = api._resolve_current(None)
+        assert source == api.CURRENT_SAMPLE_GCS

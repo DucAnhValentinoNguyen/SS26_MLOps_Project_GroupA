@@ -9,7 +9,7 @@ import typer
 from PIL import Image
 from rich.logging import RichHandler
 
-from project_name.model import PaliGemmaModule, build_prompt
+from project_name.model import PaliGemmaModule, build_prompt, extract_answer_letter
 
 logging.basicConfig(
     level=logging.INFO,
@@ -134,12 +134,13 @@ def predict_single(
     input_len = inputs["input_ids"].shape[1]
     generated_ids = output_ids[:, input_len:]
 
-    answer_letter = (
-        module.processor.decode(generated_ids[0], skip_special_tokens=True)
-        .strip()
-        .upper()
-    )
-    return answer_letter
+    decoded = module.processor.decode(generated_ids[0], skip_special_tokens=True)
+    # Normalise to the chosen answer letter. Greedy generation can wrap or
+    # repeat the letter within max_new_tokens ("(A)", "AA") because the model
+    # does not always emit EOS right after the answer; extract the first letter
+    # so callers always get a clean A/B/C/... — the same rule evaluate.py scores
+    # on, keeping the serving contract and the eval metric consistent.
+    return extract_answer_letter(decoded)
 
 
 @app.command()

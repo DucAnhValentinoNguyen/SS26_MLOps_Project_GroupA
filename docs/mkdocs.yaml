@@ -32,5 +32,6 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Architecture: architecture.md
+  - API design: api.md
   - Usage: usage.md
   - API reference: reference.md

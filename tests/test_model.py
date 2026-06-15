@@ -8,8 +8,46 @@ import torch
 
 from project_name.model import (
     build_prompt,
+    extract_answer_letter,
     PaliGemmaModule,
 )
+
+
+class TestExtractAnswerLetter:
+    """Tests for the hardened answer-letter extraction (#11)."""
+
+    def test_bare_letter(self) -> None:
+        """A clean single letter is returned uppercased."""
+        assert extract_answer_letter("A") == "A"
+
+    def test_lowercase_is_uppercased(self) -> None:
+        """Lowercase generations normalise to uppercase."""
+        assert extract_answer_letter("b") == "B"
+
+    def test_parenthesised(self) -> None:
+        """A wrapped letter like '(C)' yields the letter."""
+        assert extract_answer_letter("(C)") == "C"
+
+    def test_letter_with_trailing_tokens(self) -> None:
+        """Extra generated tokens after the letter are ignored."""
+        assert extract_answer_letter("D. photosynthesis") == "D"
+
+    def test_repeated_letter(self) -> None:
+        """A doubled letter ('AA') resolves to the first one."""
+        assert extract_answer_letter("AA") == "A"
+
+    def test_empty_string_has_no_letter(self) -> None:
+        """An empty generation yields '' and never matches a target."""
+        assert extract_answer_letter("") == ""
+
+    def test_digits_only_has_no_letter(self) -> None:
+        """A letterless generation yields ''."""
+        assert extract_answer_letter("123") == ""
+
+    def test_hardening_is_monotonic(self) -> None:
+        """Extracting on both sides never breaks a previously-correct match."""
+        for pred, target in [("A", "A"), ("(B)", "B"), ("AA", "A")]:
+            assert extract_answer_letter(pred) == extract_answer_letter(target)
 
 
 def _make_mock_model() -> MagicMock:
@@ -314,6 +352,7 @@ class TestValidationStep:
             on_step=False,
             on_epoch=True,
             prog_bar=True,
+            batch_size=1,
         )
 
     def test_logs_val_accuracy_with_correct_kwargs(
@@ -329,6 +368,7 @@ class TestValidationStep:
             on_step=False,
             on_epoch=True,
             prog_bar=True,
+            batch_size=1,
         )
 
     def test_generation_uses_answer_free_inputs(self, module: PaliGemmaModule) -> None:
@@ -474,6 +514,7 @@ class TestTestStep:
             on_step=False,
             on_epoch=True,
             prog_bar=True,
+            batch_size=1,
         )
 
     def test_accuracy_strips_whitespace_before_comparison(

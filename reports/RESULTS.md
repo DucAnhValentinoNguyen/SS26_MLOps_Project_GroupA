@@ -11,6 +11,17 @@ Self-contained results summary for the exam report (paste into Q12/Q14/Q17).
 All numbers are exact-match accuracy of the generated answer **letter** on the
 held-out ScienceQA-IMG test split (2017 samples).
 
+**Answer matching.** Accuracy is exact match on the *extracted answer letter*:
+we take the first letter of the model's greedy generation — tolerating the rare
+wrapped or repeated outputs greedy decoding can emit (`(A)`, `A.`, `AA`) — and
+compare it against the gold letter. This is more robust than full-string
+equality, which would score a stray token as wrong even when the chosen letter
+is right. On the archived `sandy-sweep-7` test run the hardened matcher changes
+exactly **one** of 2017 predictions (a single `AA`→`A`): 72.19% (1456/2017)
+strict vs 72.24% (1457/2017) hardened. We report the strict **72.19%** from the
+archived run; `extract_answer_letter` is what the current `evaluate.py` and
+serving path use going forward, so the headline is robust either way.
+
 ## Headline
 
 | Model | Data | LoRA | Test accuracy | Status |
@@ -133,15 +144,74 @@ Both are "if applicable" and are **not applicable** at this scale:
 - **M29 (distributed data loading):** we use a **multi-worker `DataLoader`**
   (`data.num_workers`) — the relevant loading optimisation here; sharded
   loading is unnecessary for a single-GPU job over a ~700 MB processed dataset.
+  Profiling confirms this empirically: loading is image-bound (~45% PIL
+  decode + ~28% resize) at ~11 ms/batch single-process — far below the L4
+  training step, so it overlaps with compute and is not the bottleneck. See
+  [`profiling/dataloader_profile.md`](profiling/dataloader_profile.md).
+
+## Data-drift monitoring (M27)
+
+We monitor the **input** distribution the served model sees (there are no
+ground-truth labels in production). `monitoring.py` derives lightweight features
+per sample — question char/word length, number of choices, hint/lecture
+presence, image dimensions — and Evidently (`DataDriftPreset`) compares a
+**reference** (training inputs, `reference.csv`) against a **current**
+distribution. The loop is closed end-to-end:
+
+1. `/predict` logs one structured line per request to Cloud Logging (derived
+   features only — no image bytes).
+2. `monitoring.py collect` reads those logs back and writes the collected
+   production features to `current_production.csv` in GCS.
+3. `GET /monitor/drift` compares reference vs that production table — over the
+   columns both share, returning Evidently's verdict and which `current_source`
+   was used — and falls back to a held-out demo sample only before any
+   production data has been collected.
+
+This avoids the self-comparison trap (reference vs a held-out slice of the same
+dataset trivially reports "no drift"): once traffic exists, the default current
+distribution is the real collected production input.
+
+## Serving API design
+
+The serving API surface (`GET /`, `POST /predict`, `GET /monitor/drift`), the
+request/response contracts, a request-flow + drift-loop diagram, and the
+serving-architecture rationale (on-demand scale-to-zero CPU container, lazy
+model load, adapter pulled from `gs://…/models/production`, single-line-JSON
+prediction logging) are documented on the **API design** page,
+[`docs/source/api.md`](../docs/source/api.md). OpenAPI/Swagger is also
+auto-served at `/docs` (and ReDoc at `/redoc`).
+
+## Inference optimization (M31)
+
+Quantization benchmark (bf16 vs int4 vs bf16+compile) on an L4 via
+`cloud/run_optimize.sh` (job `4445297885868720128`, n = 8 samples,
+`reports/eval/optimize_results.json`):
+
+| mode | load (s) | latency (s/batch) | latency (s/sample) | peak GPU (GB) |
+|---|---|---|---|---|
+| bf16 | 28.0\* | 0.720 | 0.090 | 6.87 |
+| int4 (bitsandbytes) | 3.9 | 0.787 | 0.098 | **3.38** |
+| bf16 + `torch.compile` | 3.4 | **0.717** | 0.090 | 8.26 |
+
+- **int4 halves the GPU memory** (3.38 vs 6.87 GB, −51 %) for a ~9 % per-sample
+  latency cost (0.098 vs 0.090 s) — the clear pick when VRAM is the constraint
+  (lets the 3B model fit a smaller/cheaper GPU).
+- **`torch.compile` didn't pay off here**: latency matches bf16 (0.090 s/sample)
+  while peak memory rises to 8.26 GB (compile/cudagraph buffers). At this batch
+  size the compile overhead isn't amortised.
+- \*The bf16 `load (s)` is the first cold load (base-model download/init);
+  later modes reused the warm cache, so `load (s)` is not comparable across
+  modes — latency and peak memory are the meaningful metrics.
 
 ## Artifact layout (`reports/`)
 
 | Folder | Contents |
 |---|---|
 | `figures/` | `.png` visualizations (below) |
-| `eval/` | eval data: `production_eval_results.json`, `sweep2_summary.json`, `sweep3_summary.json` |
+| `eval/` | eval data: `production_eval_results.json`, `sweep2_summary.json`, `sweep3_summary.json`, `optimize_results.json` (M31) |
 | `monitoring/` | `drift_report.html` (Evidently) |
 | `load/` | load-test summary + locust CSVs |
+| `profiling/` | `dataloader_profile.md` + cProfile (`.pstats`/`.txt`) + `dataloader_summary.json` |
 
 ### Figures (`reports/figures/`)
 

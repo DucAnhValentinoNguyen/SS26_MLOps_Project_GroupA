@@ -5,16 +5,20 @@ comma-separated choices (plus optional hint/lecture), and see the predicted
 answer letter. Points at the API via the ``API_URL`` env var so the same UI
 works against a local server or the deployed Cloud Run service.
 
-Run:
+This module imports no project code, so it is launched standalone via ``uvx``
+in its own environment (Streamlit's Starlette server pins a newer ``starlette``
+than the FastAPI API does, so they can't share one venv):
+
     API_URL=http://localhost:8000 \\
-      uv run --group serving streamlit run src/project_name/frontend.py
+      uvx --with requests --with pillow \\
+      streamlit run src/project_name/frontend.py
 """
 
 import base64
 import io
 import os
 
-import requests
+import requests  # type: ignore[import-untyped]
 import streamlit as st
 from PIL import Image
 

@@ -1,0 +1,50 @@
+name: Data change checks
+
+# M19 — a continuous workflow that triggers when the DVC-tracked dataset
+# changes. The data itself is gitignored (DVC remote lives on GCS); what
+# actually changes in git is the *.dvc pointer file that `dvc add`/`dvc repro`
+# rewrites whenever the underlying data changes. When a pointer moves we re-run
+# the data unit tests (fully mocked, no download) so a new data version can't
+# silently break download/preprocessing, and we surface which pointers changed.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "data/**.dvc"
+      - ".dvc/**"
+      - "src/project_name/data.py"
+      - ".github/workflows/data-change.yaml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "data/**.dvc"
+      - ".dvc/**"
+      - "src/project_name/data.py"
+  workflow_dispatch:
+
+jobs:
+  data-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: List tracked DVC pointers
+        run: |
+          echo "DVC-tracked data pointers in the repo:"
+          git ls-files 'data/**.dvc'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: uv sync --locked --dev
+
+      - name: Validate DVC setup
+        run: uv run dvc doctor
+
+      - name: Run data unit tests
+        run: uv run coverage run -m pytest tests/test_data.py -v

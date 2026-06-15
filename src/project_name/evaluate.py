@@ -10,6 +10,7 @@ from rich.table import Table
 from rich import print as rprint
 
 from project_name.data import DataModule, PROCESSED_DATA_DIR, DATASET_SUBSET
+from project_name.model import extract_answer_letter
 from project_name.predict import load_model
 
 logging.basicConfig(
@@ -118,7 +119,9 @@ def evaluate(
         targets = batch["answer_texts"]
 
         for i, (pred, target) in enumerate(zip(preds, targets)):
-            is_correct = pred.strip().upper() == target.strip().upper()
+            # Match on the extracted choice letter (handles "(A)", "A.", "AA",
+            # trailing tokens) rather than brittle full-string equality.
+            is_correct = extract_answer_letter(pred) == extract_answer_letter(target)
             total_correct += int(is_correct)
             # test_dataloader does not shuffle, so total_samples (before
             # incrementing) is the row index in the test split — visualize.py
@@ -168,6 +171,8 @@ def evaluate(
     # Build results dict and save to JSON
     results = {
         "checkpoint": str(ckpt_path),
+        "split": "test",
+        "subset": subset,
         "total_correct": total_correct,
         "total_samples": total_samples,
         "accuracy": overall_acc,

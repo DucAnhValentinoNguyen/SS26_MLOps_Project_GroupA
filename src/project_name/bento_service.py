@@ -35,7 +35,7 @@ class ScienceQAService:
         """Load the model once when the service worker starts."""
         from project_name.predict import load_model
 
-        self.module = load_model(_CHECKPOINT)
+        self.module = load_model(_CHECKPOINT)  # type: ignore[arg-type]
 
     @bentoml.api
     def predict(

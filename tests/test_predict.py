@@ -94,6 +94,27 @@ def test_predict_single_returns_decoded_letter() -> None:
     assert result == "A"
 
 
+def test_predict_single_normalises_repeated_letter() -> None:
+    """A 'AA'/'(A)' style generation is normalised to a clean single letter."""
+    fake_module = MagicMock()
+    fake_inputs = {"input_ids": torch.zeros((1, 5), dtype=torch.long)}
+    fake_module.processor.return_value.to.return_value = fake_inputs
+    fake_module.parameters.return_value = iter([torch.nn.Parameter(torch.zeros(1))])
+    fake_module.model.generate.return_value = torch.zeros((1, 6), dtype=torch.long)
+    # Greedy decoding repeated the answer token; the API must still return "A".
+    fake_module.processor.decode.return_value = "AA"
+
+    with patch("project_name.predict.build_prompt", return_value="prompt text"):
+        result = predict_single(
+            fake_module,
+            image=fake_image,
+            question="Is water wet?",
+            choices=["Yes", "No"],
+        )
+
+    assert result == "A"
+
+
 def test_predict_single_forwards_prompt_kwargs() -> None:
     """predict_single forwards hint and lecture to build_prompt."""
     fake_module = MagicMock()
