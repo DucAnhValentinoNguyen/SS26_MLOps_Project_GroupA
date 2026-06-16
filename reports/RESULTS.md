@@ -89,7 +89,12 @@ Natural science is the weakest split — the most diagram-dependent, which is wh
 224-resolution caps it — but it still gained +7.6 pts vs the old r=8 model
 (57.2% → 64.8%); social science gained +9.1 (76.2% → 85.3%). Source:
 `reports/eval/production_eval_results.json` (the chained-eval output for
-`sandy-sweep-7`).
+`sandy-sweep-7`). A standalone re-evaluation on Vertex (job
+`6466991906093006848`, 2026-06-15) **reproduced these figures exactly** —
+1456/2017 = 72.19% with the identical per-subject split — confirming the result
+is reproducible from the promoted adapter. This standalone eval uses the same
+test split, greedy generation, and exact-match metric as the training-time
+`trainer.test()` step, so it agrees with the model's end-of-training `test/accuracy`.
 
 ## Methodology note — why we optimise `val/accuracy`, not `val/loss`
 
@@ -260,3 +265,39 @@ Notes:
   GPU for interactive latency, and an always-on L4 endpoint costs more than this
   project warrants. The API reads its adapter from `CHECKPOINT_PATH`, which
   accepts a `gs://` path, so promoting a new adapter needs no redeploy.
+
+## Retrospective — did the project turn out as planned?
+
+> _Draft for the group to personalise — the facts are grounded in the repo; add
+> your own reflection on what you'd do differently._
+
+**The initial goal** (README): _"develop techniques that improve reasoning
+accuracy using the PaliGemma foundation model,"_ with the Transformers
+framework, the PaliGemma VLM, and the `lmms-lab/ScienceQA` data.
+
+**Did we meet it?** Largely yes. LoRA fine-tuning of `paligemma2-3b-pt-224` on
+ScienceQA took the model from a base checkpoint that rambles to one that answers
+the multiple-choice letter cleanly, reaching **72.19% test accuracy**
+(`sandy-sweep-7`), reproducibly (the standalone eval re-confirmed the training
+number). The "techniques that improve accuracy" turned out to be three: **LoRA**
+(parameter-efficient fine-tuning), a **prompt-ordering fix** (putting Choices
+before Hint/Lecture so the answer options are never truncated — worth ~+16 pts),
+and a **hyperparameter sweep on `val/accuracy`** rather than `val/loss`.
+
+**What changed from the initial plan:**
+- **Data source:** switched `lmms-lab/ScienceQA` → `derek-thomas/ScienceQA`
+  because the former is eval-only (no train split). This reshaped the splits to
+  train 6218 / val 2097 / test 2017.
+- **Scope:** the initial description was a modelling goal; the delivered project
+  is a full MLOps pipeline around it — DVC + GCS, Hydra, W&B sweeps + registry,
+  Vertex training/eval/optimize, Cloud Run serving, drift monitoring, BentoML,
+  a Streamlit frontend, CI/CD with auto-build triggers, cloud monitoring +
+  alerts, quantization benchmarking, and docs on GitHub Pages.
+
+**Honest limitations:**
+- The **224-px** input resolution caps diagram-heavy questions: natural science
+  64.8% vs social science 85.3%; language science is only 45.5% (but n=44).
+- Accuracy is solid, not state-of-the-art — the emphasis was a complete,
+  reproducible MLOps lifecycle over squeezing the last accuracy points.
+- A higher-resolution PaliGemma variant (448/896) would likely lift the
+  diagram-dependent splits, at higher training/serving cost.

@@ -5,7 +5,9 @@ WORKDIR /workspace
 COPY uv.lock uv.lock
 COPY pyproject.toml pyproject.toml
 
-RUN uv sync --frozen --no-install-project
+# --no-dev: training needs base + dvc only, not test/docs/lint tooling.
+# --group data: provides the dvc[gs] CLI (build-time `dvc config` + `dvc pull`).
+RUN uv sync --frozen --no-install-project --no-dev --group data
 
 ENV VIRTUAL_ENV=/workspace/.venv
 
@@ -20,11 +22,9 @@ COPY LICENSE LICENSE
 
 RUN mkdir -p models
 
-RUN uv sync --frozen
+RUN uv sync --frozen --no-dev --group data
 RUN uv pip install --no-cache-dir --reinstall torch==2.6.0 torchvision==0.21.0 \
       --index-url https://download.pytorch.org/whl/cu118
-
-RUN uv pip install --no-cache-dir "dvc[gs]"
 
 ENV PATH="/usr/local/nvidia/bin:/workspace/.venv/bin:$PATH"
 

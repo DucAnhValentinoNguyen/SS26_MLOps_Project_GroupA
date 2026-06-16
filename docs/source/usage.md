@@ -68,6 +68,23 @@ There is also a shell demo of the deployed API (health → predict → drift):
 ./cloud/demo_api.sh img.png "Question?" "a,b,c"  # bring your own sample
 ```
 
+## Container images
+
+Three Dockerfiles live in `dockerfiles/`: `train.dockerfile`, `api.dockerfile`,
+and `predict.dockerfile`. Build them locally with the Invoke task:
+
+```bash
+inv docker-build        # builds train + api images locally (see tasks.py)
+```
+
+The images are **continuously built and verified in CI**: the Cloud Build
+triggers `mlops-ci-api` and `mlops-ci-train` (M21) rebuild `api.dockerfile` and
+`train.dockerfile` (amd64) on every push to `main` that touches
+`src/project_name/**` or the build configs. A failing Dockerfile breaks the
+build, so "the Dockerfiles build and work as intended" (M10) is enforced on
+every change — no manual local build is required, though `inv docker-build`
+remains available for local iteration.
+
 ## Deploy to Cloud Run
 
 Build the API image (amd64) and deploy. The service reads its adapter from

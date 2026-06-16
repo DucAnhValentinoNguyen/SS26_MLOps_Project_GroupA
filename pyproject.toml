@@ -22,7 +22,6 @@ readme = "README.md"
 requires-python = ">=3.11.0"
 dependencies = [
     "datasets>=4.8.5",
-    "dvc[gs]>=3.67.1",
     "fastapi==0.115.6",
     "gcloud>=0.18.3",
     "google-cloud-storage>=3.10.1",
@@ -30,9 +29,7 @@ dependencies = [
     "lightning>=2.6.1",
     "matplotlib>=3.10.9",
     "peft>=0.19.1",
-    "pre-commit>=4.1.0",
     "rich>=15.0.0",
-    "snakeviz>=2.2.2",
     "tensorboard>=2.20.0",
     "torch==2.6.0",
     "torchvision>=0.21.0",
@@ -41,6 +38,9 @@ dependencies = [
     "uvicorn==0.34.0",
     "wandb>=0.27.0",
 ]
+# dvc[gs] (data versioning, training image only), pre-commit + snakeviz (dev
+# tools) moved out of base so the serving/inference images don't ship them.
+# pre-commit + snakeviz stay in the `dev` group; dvc[gs] is in the `data` group.
 
 [project.scripts]
 train = "project_name.train:train"
@@ -73,10 +73,18 @@ serving = [
     "bentoml>=1.2,<2",      # specialized ML deployment (M25)
     "google-cloud-logging>=3.0",  # drift `collect`: read /predict logs (M27)
 ]
-# Drift detection in the deployed API (/monitor/drift). Synced into the API
-# image — evidently only, without the heavier frontend/load-test extras.
+# Drift detection (/monitor/drift) + Prometheus metrics (/metrics) in the
+# deployed API. Synced into the API image (api.dockerfile --group monitoring),
+# without the heavier frontend/load-test extras.
 monitoring = [
     "evidently>=0.4,<0.7",
+    "prometheus-fastapi-instrumentator>=7.0,<8",  # M28: /metrics instrumentation
+]
+# Data versioning (dvc + GCS remote). Only the training image needs the dvc CLI
+# (build-time `dvc config` + runtime `dvc pull`); kept out of base so api/predict
+# stay lean. train.dockerfile installs it via `--group data`.
+data = [
+    "dvc[gs]>=3.67.1",
 ]
 
 

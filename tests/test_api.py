@@ -112,6 +112,21 @@ def test_predict_returns_prediction() -> None:
     assert response.json()["prediction"] == "A"
 
 
+def test_metrics_endpoint_exposes_prometheus() -> None:
+    """/metrics exposes Prometheus metrics when the instrumentator is installed (M28).
+
+    Skips when prometheus-fastapi-instrumentator isn't present (e.g. CI's --dev),
+    matching the optional-deployed-dep pattern used by the drift tests.
+    """
+    pytest.importorskip("prometheus_fastapi_instrumentator")
+    with TestClient(app) as client:
+        client.get("/")  # generate at least one request sample
+        resp = client.get("/metrics")
+    assert resp.status_code == 200
+    body = resp.text
+    assert "# HELP" in body and "http_request" in body
+
+
 def test_predict_emits_parseable_single_line_event(capsys) -> None:
     """The /predict structured event is one JSON line the collector can parse.
 

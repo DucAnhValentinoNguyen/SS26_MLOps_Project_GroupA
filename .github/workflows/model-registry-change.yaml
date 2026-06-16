@@ -1,0 +1,65 @@
+name: Model registry change
+
+# M19 — a continuous workflow that reacts when the W&B model registry changes
+# (e.g. the `production` alias is moved to a newly promoted model). GitHub can't
+# watch W&B directly, so the trigger is a `repository_dispatch` event sent by a
+# W&B Automation/webhook (see SETUP below); `workflow_dispatch` runs it by hand.
+# On trigger we roll the promoted adapter out to Cloud Run (a fresh revision
+# lazy-loads gs://.../models/production at startup — no image rebuild) and
+# smoke-test the live endpoint.
+#
+# ── SETUP (one-time) ──
+# 1. W&B Automation (W&B UI -> Registry -> Automations): on a new version / alias
+#    change, add a Webhook action POSTing to
+#       https://api.github.com/repos/yuxinliu42/SS26_MLOps_Project_GroupA/dispatches
+#    headers  Accept: application/vnd.github+json
+#             Authorization: Bearer <GitHub PAT with 'repo' scope>   (a W&B secret)
+#    body     {"event_type": "model-registry-updated"}
+# 2. Repo secret GCP_SA_KEY = a service-account key JSON with run.admin +
+#    iam.serviceAccountUser (to roll a new Cloud Run revision). Workload Identity
+#    Federation is the more secure alternative to a long-lived key.
+on:
+  repository_dispatch:
+    types: [model-registry-updated]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GCP_PROJECT: paligemma-scienceqa
+  REGION: europe-west4
+  SERVICE: paligemma-api
+  API_URL: https://paligemma-api-581237630637.europe-west4.run.app
+
+jobs:
+  rollout-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Roll the promoted model out to Cloud Run
+        # A new revision cold-starts and lazy-loads the latest adapter from
+        # gs://.../models/production on its first request — no rebuild needed.
+        run: |
+          gcloud run services update "$SERVICE" \
+            --region="$REGION" --project="$GCP_PROJECT" \
+            --update-labels=model-rollout=run-${{ github.run_id }}
+
+      - name: Smoke-test the production endpoint
+        run: |
+          echo "Health:"; curl -fsS --max-time 60 "$API_URL/"; echo
+          PNG="iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+          BODY=$(printf '{"question":"smoke test","choices":["A","B"],"image_b64":"%s"}' "$PNG")
+          echo "Predict (cold start can take ~160s):"
+          RESP=$(curl -fsS --max-time 600 -X POST "$API_URL/predict" \
+            -H 'Content-Type: application/json' -d "$BODY")
+          echo "  -> $RESP"
+          echo "$RESP" | python3 -c "import json,sys; r=json.load(sys.stdin); assert r.get('prediction') in list('ABCDEFGHIJ'), r; print('OK prediction:', r['prediction'])"

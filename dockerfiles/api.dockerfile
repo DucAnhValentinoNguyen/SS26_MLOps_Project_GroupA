@@ -3,14 +3,16 @@ FROM ghcr.io/astral-sh/uv:python3.11-bookworm AS base
 COPY uv.lock uv.lock
 COPY pyproject.toml pyproject.toml
 
-# --group monitoring adds evidently for the /monitor/drift endpoint (M27).
-RUN uv sync --frozen --no-install-project --group monitoring
+# --group monitoring adds evidently (/monitor/drift) + the Prometheus
+# instrumentator (/metrics, M27/M28). --no-dev keeps test/docs/lint tooling out
+# of the serving image (the API imports only base + monitoring deps at runtime).
+RUN uv sync --frozen --no-install-project --no-dev --group monitoring
 
 COPY src src/
 COPY README.md README.md
 COPY LICENSE LICENSE
 
-RUN uv sync --frozen --group monitoring
+RUN uv sync --frozen --no-dev --group monitoring
 
 # Cloud Run injects $PORT (8080); default to 8000 locally. Shell form so the
 # variable expands at runtime. --no-sync: deps are already frozen-synced above,

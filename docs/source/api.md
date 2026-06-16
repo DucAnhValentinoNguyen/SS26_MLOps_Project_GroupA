@@ -13,6 +13,12 @@ OpenAPI at `/openapi.json`, with interactive docs at `/docs` (Swagger) and
 | `GET /`              | Health + model-loaded flag       | —                                     | `{status, model_loaded}` |
 | `POST /predict`      | Inference on one ScienceQA item  | `PredictRequest` (JSON)               | `{prediction}` — the answer letter |
 | `GET /monitor/drift` | Evidently input data-drift check | `current_gcs` (optional gs:// override) | `DriftResponse` |
+| `GET /metrics`       | Prometheus system metrics (M28)  | —                                     | Prometheus text exposition |
+
+`/metrics` is added by `prometheus-fastapi-instrumentator` (request counts by
+method/status/handler, latency histograms, request/response sizes) and can be
+scraped by Managed Prometheus. It is instrumented defensively, so the API still
+runs without the optional dependency.
 
 ### `POST /predict`
 

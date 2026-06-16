@@ -223,6 +223,20 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# System metrics (M28): expose Prometheus metrics at /metrics — request counts,
+# latency histograms, in-progress requests, request/response sizes. Cloud Run /
+# Managed Prometheus can scrape it. Wrapped defensively so the API still imports
+# without the optional dependency (only the deployed image and the `monitoring`
+# group install prometheus-fastapi-instrumentator).
+try:
+    from prometheus_fastapi_instrumentator import Instrumentator
+
+    Instrumentator().instrument(app).expose(
+        app, endpoint="/metrics", include_in_schema=False
+    )
+except ImportError:  # pragma: no cover - metrics are an optional extra
+    log.warning("prometheus-fastapi-instrumentator not installed — /metrics disabled.")
+
 
 class PredictRequest(BaseModel):
     """Request body for the /predict endpoint.

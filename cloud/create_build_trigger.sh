@@ -22,7 +22,7 @@ PROJECT="${PROJECT:-paligemma-scienceqa}"
 REGION="${REGION:-europe-west4}"            # 2nd-gen trigger lives in this region
 CONNECTION="${CONNECTION:-paligemma-gh}"
 REPO_RES="${REPO_RES:-paligemma-repo}"
-REPO_OWNER="${REPO_OWNER:-DucAnhValentinoNguyen}"
+REPO_OWNER="${REPO_OWNER:-yuxinliu42}"
 REPO_NAME="${REPO_NAME:-SS26_MLOps_Project_GroupA}"
 REMOTE_URI="https://github.com/${REPO_OWNER}/${REPO_NAME}.git"
 
