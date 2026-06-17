@@ -15,4 +15,4 @@ RUN uv sync --frozen --no-dev
 
 # --no-sync: deps are already frozen-synced above, so use that lean venv and
 # don't re-sync (which would re-add the dev group and hit the network) at start.
-ENTRYPOINT ["uv", "run", "--no-sync", "python", "-m", "project_name.predict"]
+ENTRYPOINT ["uv", "run", "--no-sync", "python", "-m", "scipali.serving.predict"]

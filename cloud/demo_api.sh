@@ -39,7 +39,7 @@ else
     uv run --quiet python - <<'PY'
 import base64, io, json, sys
 from datasets import load_from_disk
-from project_name.data import DATASET_SUBSET, PROCESSED_DATA_DIR
+from scipali.data.data import DATASET_SUBSET, PROCESSED_DATA_DIR
 s = load_from_disk(PROCESSED_DATA_DIR / DATASET_SUBSET)["test"][0]
 buf = io.BytesIO(); s["image"].convert("RGB").save(buf, format="PNG")
 sys.stderr.write(f"  question: {s['question']}\n  choices:  {list(s['choices'])}\n")

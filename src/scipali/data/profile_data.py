@@ -12,7 +12,7 @@ Reads the DVC-pulled processed dataset from disk and the locally-cached
 PaliGemma2 processor. Run (offline, cache only):
 
     HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \\
-        uv run python -m project_name.profile_data dataloader
+        uv run python -m scipali.data.profile_data dataloader
 
 Outputs land in ``reports/profiling/``.
 """
@@ -29,8 +29,8 @@ import typer
 from rich.logging import RichHandler
 from transformers import AutoProcessor
 
-from project_name.data import DATASET_SUBSET, PROCESSED_DATA_DIR, DataModule
-from project_name.model import MODEL_NAME
+from scipali.data.data import DATASET_SUBSET, PROCESSED_DATA_DIR, DataModule
+from scipali.models.model import MODEL_NAME
 
 logging.basicConfig(level=logging.INFO, format="%(message)s", handlers=[RichHandler()])
 log = logging.getLogger(__name__)

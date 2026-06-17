@@ -10,7 +10,7 @@ from PIL import Image
 from torch.utils.data import RandomSampler, SequentialSampler
 from typer.testing import CliRunner
 
-from project_name.data import (
+from scipali.data.data import (
     COLUMNS_ALWAYS_DROP,
     DATASET_SUBSET,
     DataModule,
@@ -130,7 +130,7 @@ class TestDownload:
         assert result.exit_code == 0
         assert save_path.exists()
 
-    @patch("project_name.data.load_dataset")
+    @patch("scipali.data.data.load_dataset")
     def test_downloads_and_saves(self, mock_load: MagicMock, tmp_path: Path) -> None:
         """Dataset is downloaded from HuggingFace and saved to disk."""
         mock_dataset = _make_dataset()
@@ -181,7 +181,7 @@ class TestPreprocess:
         assert result.exit_code == 0
         assert (tmp_path / "processed" / DATASET_SUBSET).exists()
 
-    @patch("project_name.data.load_from_disk")
+    @patch("scipali.data.data.load_from_disk")
     def test_answer_index_kept_no_answer_text(
         self, mock_load: MagicMock, tmp_path: Path
     ) -> None:
@@ -211,7 +211,7 @@ class TestPreprocess:
         assert "answer_text" not in saved[0]["train"].column_names
         assert isinstance(saved[0]["train"][0]["answer"], int)
 
-    @patch("project_name.data.load_from_disk")
+    @patch("scipali.data.data.load_from_disk")
     def test_always_drop_columns_removed(
         self, mock_load: MagicMock, tmp_path: Path
     ) -> None:
@@ -239,7 +239,7 @@ class TestPreprocess:
         for col in COLUMNS_ALWAYS_DROP:
             assert col not in saved[0]["validation"].column_names
 
-    @patch("project_name.data.load_from_disk")
+    @patch("scipali.data.data.load_from_disk")
     def test_subject_filter_removes_other_subjects(
         self, mock_load: MagicMock, tmp_path: Path
     ) -> None:
@@ -279,7 +279,7 @@ class TestPreprocess:
         subjects = {s["subject"] for s in saved[0]["validation"]}
         assert subjects == {"physics"}
 
-    @patch("project_name.data.load_from_disk")
+    @patch("scipali.data.data.load_from_disk")
     def test_rejects_invalid_drop_cols(
         self, mock_load: MagicMock, tmp_path: Path
     ) -> None:
@@ -302,7 +302,7 @@ class TestPreprocess:
 
         assert result.exit_code == 1
 
-    @patch("project_name.data.load_from_disk")
+    @patch("scipali.data.data.load_from_disk")
     def test_overwrite_removes_existing(
         self, mock_load: MagicMock, tmp_path: Path
     ) -> None:
@@ -314,7 +314,7 @@ class TestPreprocess:
         sentinel.write_text("old")
         mock_load.return_value = _make_dataset()
 
-        with patch("project_name.data.DatasetDict.save_to_disk"):
+        with patch("scipali.data.data.DatasetDict.save_to_disk"):
             result = runner.invoke(
                 app,
                 [
@@ -352,7 +352,7 @@ class TestSubsetData:
         assert result.exit_code == 0
         assert debug_path.exists()
 
-    @patch("project_name.data.load_from_disk")
+    @patch("scipali.data.data.load_from_disk")
     def test_subset_size_capped_at_n_samples(
         self, mock_load: MagicMock, tmp_path: Path
     ) -> None:
@@ -382,7 +382,7 @@ class TestSubsetData:
         assert result.exit_code == 0
         assert len(saved[0]["train"]) == 10
 
-    @patch("project_name.data.load_from_disk")
+    @patch("scipali.data.data.load_from_disk")
     def test_subset_does_not_exceed_split_size(
         self, mock_load: MagicMock, tmp_path: Path
     ) -> None:
@@ -392,7 +392,7 @@ class TestSubsetData:
             n_train=3, n_validation=2, n_test=2
         )
 
-        with patch("project_name.data.DatasetDict.save_to_disk"):
+        with patch("scipali.data.data.DatasetDict.save_to_disk"):
             result = runner.invoke(
                 app,
                 [
@@ -464,7 +464,7 @@ class TestDataModule:
         Returns:
             A DataModule with setup() already called.
         """
-        with patch("project_name.data.load_from_disk", return_value=processed_dataset):
+        with patch("scipali.data.data.load_from_disk", return_value=processed_dataset):
             dm = DataModule(
                 processed_dir=tmp_path,
                 processor=mock_processor,
@@ -491,7 +491,7 @@ class TestDataModule:
         assert data_module.dataset is not None
         samples = [data_module.dataset["train"][i] for i in range(2)]
 
-        with patch("project_name.model.build_prompt", return_value="Q: ..."):
+        with patch("scipali.models.model.build_prompt", return_value="Q: ..."):
             batch = data_module._collate(samples)
 
         assert "labels" in batch
@@ -501,7 +501,7 @@ class TestDataModule:
         assert data_module.dataset is not None
         samples = [data_module.dataset["train"][i] for i in range(2)]
 
-        with patch("project_name.model.build_prompt", return_value="Q: ..."):
+        with patch("scipali.models.model.build_prompt", return_value="Q: ..."):
             batch = data_module._collate(samples)
 
         assert (batch["labels"] == -100).any()
@@ -520,7 +520,7 @@ class TestDataModule:
 
         data_module.processor.side_effect = _capture
 
-        with patch("project_name.model.build_prompt", return_value="Q: ..."):
+        with patch("scipali.models.model.build_prompt", return_value="Q: ..."):
             data_module._collate(samples)
 
         assert isinstance(received_images[0], Image.Image)
@@ -545,7 +545,7 @@ class TestDataModule:
         assert data_module.dataset is not None
         samples = [data_module.dataset["validation"][i] for i in range(2)]
 
-        with patch("project_name.model.build_prompt", return_value="Q: ..."):
+        with patch("scipali.models.model.build_prompt", return_value="Q: ..."):
             batch = data_module._collate_val(samples)
 
         assert "labels" in batch

@@ -8,10 +8,10 @@ where data-loading time goes and whether it is worth optimizing.
 
 ```bash
 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 TOKENIZERS_PARALLELISM=false \
-  uv run python -m project_name.profile_data --n-batches 200 --batch-size 4 --workers 0,2,4,8
+  uv run python -m scipali.data.profile_data --n-batches 200 --batch-size 4 --workers 0,2,4,8
 ```
 
-Tool: Python `cProfile` + wall-clock timing (`src/project_name/profile_data.py`).
+Tool: Python `cProfile` + wall-clock timing (`src/scipali/data/profile_data.py`).
 Reads the DVC-pulled `data/processed/ScienceQA-IMG` (train = 6218) and the
 locally-cached `google/paligemma2-3b-pt-224` processor. Batch size 4 (= training).
 Run on the local laptop CPU (macOS, `spawn` start method).

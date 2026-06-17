@@ -231,10 +231,10 @@ Quantization benchmark (bf16 vs int4 vs bf16+compile) on an L4 via
 Reproduce with the committed source JSONs:
 
 ```bash
-python -m project_name.visualize subject-accuracy reports/eval/production_eval_results.json
-python -m project_name.visualize sweep-comparison  reports/eval/sweep3_summary.json   # full-data
-python -m project_name.visualize sweep-comparison  reports/eval/sweep2_summary.json   # earlier
-python -m project_name.visualize pred-lengths       reports/eval/production_eval_results.json
+python -m scipali.models.visualize subject-accuracy reports/eval/production_eval_results.json
+python -m scipali.models.visualize sweep-comparison  reports/eval/sweep3_summary.json   # full-data
+python -m scipali.models.visualize sweep-comparison  reports/eval/sweep2_summary.json   # earlier
+python -m scipali.models.visualize pred-lengths       reports/eval/production_eval_results.json
 ```
 
 ## Cloud workload inventory (what runs where, and why)
@@ -251,8 +251,8 @@ stays local/CI by design.
 | Standalone adapter eval | Vertex L4 | `cloud/run_eval.sh` (any `ADAPTER_GCS`) |
 | Image build | Cloud Build | `cloud/cloudbuild.train.yaml` |
 | Serving / inference | on-demand container (local or Cloud Run) | `dockerfiles/api.dockerfile` |
-| Data preprocessing | local / CI | `project_name.data` (CPU: resize + tokenise) |
-| Report figures | local | `project_name.visualize` (reads eval JSON) |
+| Data preprocessing | local / CI | `scipali.data.data` (CPU: resize + tokenise) |
+| Report figures | local | `scipali.models.visualize` (reads eval JSON) |
 
 Notes:
 - Secrets (W&B key, HF token) are fetched at container start from Secret

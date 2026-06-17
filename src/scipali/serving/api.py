@@ -16,8 +16,8 @@ from PIL import Image
 from pydantic import BaseModel, Field
 from rich.logging import RichHandler
 
-from project_name.model import PaliGemmaModule
-from project_name.predict import load_model, predict_single
+from scipali.models.model import PaliGemmaModule
+from scipali.serving.predict import load_model, predict_single
 
 logging.basicConfig(
     level=logging.INFO,
@@ -53,7 +53,7 @@ _load_lock = threading.Lock()
 _BUCKET = "gs://mlops-paligemma-west4/monitoring"
 REFERENCE_GCS = os.environ.get("REFERENCE_GCS", f"{_BUCKET}/reference.csv")
 # Real collected production inputs (materialised from /predict logs by
-# `python -m project_name.monitoring collect`). This is the default "current"
+# `python -m scipali.monitoring.monitoring collect`). This is the default "current"
 # distribution so the endpoint is not a self-comparison once traffic exists.
 PRODUCTION_GCS = os.environ.get("PRODUCTION_GCS", f"{_BUCKET}/current_production.csv")
 # Held-out demo distribution used only as a fallback before any production
@@ -402,7 +402,7 @@ def monitor_drift(
     Both feature tables are read from GCS, so the model container needs neither
     the dataset nor a rebuild. With no ``current_gcs`` the endpoint compares
     against the collected production inputs (PRODUCTION_GCS, materialised from
-    the /predict logs by ``python -m project_name.monitoring collect``), falling
+    the /predict logs by ``python -m scipali.monitoring.monitoring collect``), falling
     back to a held-out demo sample only until production data exists. Pass
     ``current_gcs`` to compare against an explicit table.
 

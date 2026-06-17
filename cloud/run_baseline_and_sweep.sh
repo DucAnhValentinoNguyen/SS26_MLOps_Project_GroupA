@@ -43,7 +43,7 @@ if [ "${SKIP_BASELINE}" = "1" ]; then
   echo ">>> [1/3] baseline skipped (SKIP_BASELINE=1)"
 else
   echo ">>> [1/3] baseline fine-tune (run_name=baseline)"
-  python -m project_name.train \
+  python -m scipali.models.train \
     trainer.wandb.enabled=true \
     trainer.wandb.run_name=baseline \
     "$@"
@@ -95,7 +95,7 @@ PY
   # serving-faithful, and removes the ~0.05% batched-greedy bf16 argmax flip seen
   # between batch sizes. Slower, but the test split is small and this runs once on
   # the sweep winner.
-  python -m project_name.evaluate "${ADAPTER_DIR}" --by-subject \
+  python -m scipali.models.evaluate "${ADAPTER_DIR}" --by-subject \
     --batch-size 1 \
     --output-path eval_results.json
   if [ -n "${AIP_MODEL_DIR:-}" ]; then
@@ -103,7 +103,7 @@ PY
 import os
 from pathlib import Path
 
-from project_name.train import upload_to_gcs
+from scipali.models.train import upload_to_gcs
 
 uri = upload_to_gcs(Path("eval_results.json"), os.environ["AIP_MODEL_DIR"])
 print(f"uploaded {uri}")

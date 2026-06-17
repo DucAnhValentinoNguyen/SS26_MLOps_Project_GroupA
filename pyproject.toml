@@ -6,7 +6,7 @@ build-backend = "uv_build"
 source-dir = "src"
 
 [project]
-name = "project_name"
+name = "scipali"
 version = "0.0.1"
 description = "a short description"
 authors = [
@@ -43,7 +43,7 @@ dependencies = [
 # pre-commit + snakeviz stay in the `dev` group; dvc[gs] is in the `data` group.
 
 [project.scripts]
-train = "project_name.train:train"
+train = "scipali.models.train:train"
 
 [dependency-groups]
 dev = [

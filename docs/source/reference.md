@@ -4,28 +4,28 @@ Auto-generated from docstrings via `mkdocstrings`.
 
 ## Data
 
-::: project_name.data
+::: scipali.data.data
 
 ## Model
 
-::: project_name.model
+::: scipali.models.model
 
 ## Training
 
-::: project_name.train
+::: scipali.models.train
 
 ## Evaluation
 
-::: project_name.evaluate
+::: scipali.models.evaluate
 
 ## Prediction
 
-::: project_name.predict
+::: scipali.serving.predict
 
 ## Serving API
 
-::: project_name.api
+::: scipali.serving.api
 
 ## Monitoring
 
-::: project_name.monitoring
+::: scipali.monitoring.monitoring

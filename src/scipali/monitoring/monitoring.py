@@ -7,7 +7,7 @@ number of choices, hint/lecture presence, image dimensions, subject — which is
 enough to catch distribution shift in the inputs the model sees.
 
 Run (single-command Typer app, so no subcommand name):
-    uv run --group serving python -m project_name.monitoring
+    uv run --group serving python -m scipali.monitoring.monitoring
 """
 
 import json
@@ -21,7 +21,7 @@ import typer
 from datasets import load_from_disk
 from rich.logging import RichHandler
 
-from project_name.data import DATASET_SUBSET, PROCESSED_DATA_DIR
+from scipali.data.data import DATASET_SUBSET, PROCESSED_DATA_DIR
 
 logging.basicConfig(level=logging.INFO, format="%(message)s", handlers=[RichHandler()])
 log = logging.getLogger(__name__)

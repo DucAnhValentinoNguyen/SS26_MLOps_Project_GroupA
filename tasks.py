@@ -5,7 +5,7 @@ import os
 from invoke import Context, task
 
 WINDOWS = os.name == "nt"
-PROJECT_NAME = "project_name"
+PROJECT_NAME = "scipali"
 PYTHON_VERSION = "3.11.0"
 
 
@@ -14,12 +14,12 @@ PYTHON_VERSION = "3.11.0"
 def preprocess_data(ctx: Context) -> None:
     """Download and preprocess data."""
     ctx.run(
-        f"uv run python -m {PROJECT_NAME}.data download",
+        f"uv run python -m {PROJECT_NAME}.data.data download",
         echo=True,
         pty=not WINDOWS,
     )
     ctx.run(
-        f"uv run python -m {PROJECT_NAME}.data preprocess",
+        f"uv run python -m {PROJECT_NAME}.data.data preprocess",
         echo=True,
         pty=not WINDOWS,
     )
@@ -29,7 +29,7 @@ def preprocess_data(ctx: Context) -> None:
 def train(ctx: Context, config: str = "train") -> None:
     """Train model."""
     ctx.run(
-        f"uv run python src/{PROJECT_NAME}/train.py --config-name {config}",
+        f"uv run python src/{PROJECT_NAME}/models/train.py --config-name {config}",
         echo=True,
         pty=not WINDOWS,
     )

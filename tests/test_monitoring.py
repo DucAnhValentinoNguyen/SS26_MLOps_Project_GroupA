@@ -2,8 +2,8 @@
 
 from pathlib import Path
 
-from project_name import monitoring
-from project_name.monitoring import _features_from_log, _parse_log_entry
+from scipali.monitoring import monitoring
+from scipali.monitoring.monitoring import _features_from_log, _parse_log_entry
 
 
 class TestSeedReference:

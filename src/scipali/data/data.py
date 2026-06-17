@@ -354,7 +354,7 @@ class DataModule(L.LightningDataModule):
             A dict of tensors ready for the model.
         """
         # Avoid circular import by importing the prompt builder here
-        from project_name.model import build_prompt
+        from scipali.models.model import build_prompt
 
         prompts, answer_texts, images, subjects = [], [], [], []
         for s in samples:

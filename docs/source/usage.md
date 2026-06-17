@@ -6,8 +6,8 @@ All commands assume the project environment is synced (`uv sync`).
 
 ```bash
 # Download derek-thomas/ScienceQA (image questions) and preprocess the splits
-uv run python -m project_name.data download
-uv run python -m project_name.data preprocess --overwrite
+uv run python -m scipali.data.data download
+uv run python -m scipali.data.data preprocess --overwrite
 dvc push   # publish processed data to the GCS remote
 ```
 
@@ -32,7 +32,7 @@ SKIP_BASELINE=1 bash cloud/watch_job.sh         # sweep only
 
 ```bash
 # local
-uv run python -m project_name.evaluate checkpoints/adapter-production --by-subject
+uv run python -m scipali.models.evaluate checkpoints/adapter-production --by-subject
 # standalone Vertex eval job against any GCS adapter
 TEMPLATE=cloud/vertex_eval.template.yaml RENDERED=cloud/vertex_eval.yaml \
   DISPLAY_NAME=paligemma-eval \
@@ -44,19 +44,19 @@ TEMPLATE=cloud/vertex_eval.template.yaml RENDERED=cloud/vertex_eval.yaml \
 
 ```bash
 # single prediction
-uv run python -m project_name.predict checkpoints/adapter-production \
+uv run python -m scipali.serving.predict checkpoints/adapter-production \
   -q "What gas do plants absorb?" -c "oxygen,carbon dioxide,nitrogen" -i img.png
 
 # API (local; PREDICT_DEVICE=cpu since MPS crashes on PaliGemma matmuls)
 CHECKPOINT_PATH=checkpoints/adapter-production PREDICT_DEVICE=cpu \
-  uv run uvicorn project_name.api:app --port 8000
+  uv run uvicorn scipali.serving.api:app --port 8000
 
 # Streamlit frontend over the API — launched standalone via uvx (it imports no
 # project code, and Streamlit's Starlette server conflicts with FastAPI's
 # pinned starlette, so it is kept out of the project env on purpose).
 API_URL=http://localhost:8000 \
   uvx --with requests --with pillow \
-  streamlit run src/project_name/frontend.py
+  streamlit run src/scipali/serving/frontend.py
 ```
 
 Point `API_URL` at the deployed Cloud Run URL instead to drive the live service.
@@ -80,7 +80,7 @@ inv docker-build        # builds train + api images locally (see tasks.py)
 The images are **continuously built and verified in CI**: the Cloud Build
 triggers `mlops-ci-api` and `mlops-ci-train` (M21) rebuild `api.dockerfile` and
 `train.dockerfile` (amd64) on every push to `main` that touches
-`src/project_name/**` or the build configs. A failing Dockerfile breaks the
+`src/scipali/**` or the build configs. A failing Dockerfile breaks the
 build, so "the Dockerfiles build and work as intended" (M10) is enforced on
 every change — no manual local build is required, though `inv docker-build`
 remains available for local iteration.
@@ -116,10 +116,10 @@ the base model and loads on CPU; later calls are ~10–27 s.
 
 ```bash
 # data-drift report (Evidently)
-uv run --group serving python -m project_name.monitoring
+uv run --group serving python -m scipali.monitoring.monitoring
 # load test the deployed API (locust)
 uv run --group serving locust -f tests/load/locustfile.py \
   --headless -u 5 -r 1 -t 1m --host <cloud-run-url>
 # BentoML serving
-uv run --group serving bentoml serve project_name.bento_service:ScienceQAService
+uv run --group serving bentoml serve scipali.serving.bento_service:ScienceQAService
 ```

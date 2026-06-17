@@ -7,7 +7,8 @@ PyTorch model directly and adds batching/packaging on top.
 
 Serve locally:
     CHECKPOINT_PATH=checkpoints/adapter-production \\
-      uv run --group serving bentoml serve project_name.bento_service:ScienceQAService
+      uv run --group serving \\
+      bentoml serve scipali.serving.bento_service:ScienceQAService
 
 Build a bento (for containerizing / deploying):
     uv run --group serving bentoml build
@@ -33,7 +34,7 @@ class ScienceQAService:
 
     def __init__(self) -> None:
         """Load the model once when the service worker starts."""
-        from project_name.predict import load_model
+        from scipali.serving.predict import load_model
 
         self.module = load_model(_CHECKPOINT)  # type: ignore[arg-type]
 
@@ -60,7 +61,7 @@ class ScienceQAService:
         Returns:
             A dict ``{"prediction": "A"|"B"|...}``.
         """
-        from project_name.predict import predict_single
+        from scipali.serving.predict import predict_single
 
         prompt_kwargs: dict[str, str] = {}
         if hint:

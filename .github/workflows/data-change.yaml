@@ -12,14 +12,14 @@ on:
     paths:
       - "data/**.dvc"
       - ".dvc/**"
-      - "src/project_name/data.py"
+      - "src/scipali/data/data.py"
       - ".github/workflows/data-change.yaml"
   pull_request:
     branches: [main]
     paths:
       - "data/**.dvc"
       - ".dvc/**"
-      - "src/project_name/data.py"
+      - "src/scipali/data/data.py"
   workflow_dispatch:
 
 jobs:

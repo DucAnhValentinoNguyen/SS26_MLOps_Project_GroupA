@@ -19,8 +19,8 @@ from omegaconf import DictConfig, OmegaConf
 from rich.logging import RichHandler
 from urllib.parse import urlparse
 
-from project_name.data import DataModule
-from project_name.model import PaliGemmaModule
+from scipali.data.data import DataModule
+from scipali.models.model import PaliGemmaModule
 
 logging.basicConfig(
     level=logging.INFO,

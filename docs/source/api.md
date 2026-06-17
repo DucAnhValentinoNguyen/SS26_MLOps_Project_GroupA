@@ -1,6 +1,6 @@
 # API design
 
-The serving API is a small FastAPI app (`project_name.api`) with three
+The serving API is a small FastAPI app (`scipali.serving.api`) with three
 endpoints: a health check, single-sample inference, and a data-drift check.
 The full request/response models are validated by Pydantic and published as
 OpenAPI at `/openapi.json`, with interactive docs at `/docs` (Swagger) and

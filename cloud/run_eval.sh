@@ -15,7 +15,7 @@
 #                needed to load the gated base model; W&B is not used here)
 #
 # Defaults to --batch-size 1 (serving-faithful, deterministic). Any extra args
-# are forwarded to project_name.evaluate and override it (e.g. --batch-size 8).
+# are forwarded to scipali.models.evaluate and override it (e.g. --batch-size 8).
 set -euo pipefail
 
 : "${ADAPTER_GCS:?set ADAPTER_GCS to the gs:// adapter directory}"
@@ -62,7 +62,7 @@ echo ">>> evaluating ${ADAPTER_GCS} (--by-subject)"
 # --batch-size 1: one sample at a time (no left-padding), matching how the API
 # serves each /predict request — deterministic + serving-faithful. Placed before
 # "$@" so a caller can still override it (click takes the last value).
-python -m project_name.evaluate "${ADAPTER_DIR}" --by-subject \
+python -m scipali.models.evaluate "${ADAPTER_DIR}" --by-subject \
   --batch-size 1 \
   --output-path eval_results.json "$@"
 
@@ -71,7 +71,7 @@ if [ -n "${AIP_MODEL_DIR:-}" ]; then
 import os
 from pathlib import Path
 
-from project_name.train import upload_to_gcs
+from scipali.models.train import upload_to_gcs
 
 uri = upload_to_gcs(Path("eval_results.json"), os.environ["AIP_MODEL_DIR"])
 print(f"uploaded {uri}")

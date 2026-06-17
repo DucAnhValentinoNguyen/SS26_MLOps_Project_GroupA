@@ -7,7 +7,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 from PIL import Image
 import pytest
-from project_name.api import app
+from scipali.serving.api import app
 
 
 @pytest.fixture(autouse=True)
@@ -70,8 +70,10 @@ def test_lifespan_fetches_gcs_checkpoint(monkeypatch, tmp_path) -> None:
     """A gs:// CHECKPOINT_PATH is downloaded via _fetch_gcs_dir, then loaded."""
     monkeypatch.setenv("CHECKPOINT_PATH", "gs://bucket/models/production")
     with (
-        patch("project_name.api._fetch_gcs_dir", return_value=tmp_path) as mock_fetch,
-        patch("project_name.api.load_model") as mock_load,
+        patch(
+            "scipali.serving.api._fetch_gcs_dir", return_value=tmp_path
+        ) as mock_fetch,
+        patch("scipali.serving.api.load_model") as mock_load,
     ):
         with TestClient(app) as client:
             response = client.get("/")
@@ -84,8 +86,8 @@ def test_lifespan_local_path_skips_gcs_fetch(monkeypatch, tmp_path) -> None:
     """A local CHECKPOINT_PATH never touches GCS."""
     monkeypatch.setenv("CHECKPOINT_PATH", str(tmp_path))
     with (
-        patch("project_name.api._fetch_gcs_dir") as mock_fetch,
-        patch("project_name.api.load_model") as mock_load,
+        patch("scipali.serving.api._fetch_gcs_dir") as mock_fetch,
+        patch("scipali.serving.api.load_model") as mock_load,
     ):
         with TestClient(app):
             pass
@@ -96,8 +98,8 @@ def test_lifespan_local_path_skips_gcs_fetch(monkeypatch, tmp_path) -> None:
 def test_predict_returns_prediction() -> None:
     """Predict endpoint returns a prediction letter when model is loaded."""
     with (
-        patch("project_name.api._module", new=object()),
-        patch("project_name.api.predict_single", return_value="A"),
+        patch("scipali.serving.api._module", new=object()),
+        patch("scipali.serving.api.predict_single", return_value="A"),
     ):
         with TestClient(app) as client:
             response = client.post(
@@ -136,11 +138,11 @@ def test_predict_emits_parseable_single_line_event(capsys) -> None:
     must now be a single-line JSON readable end-to-end by _parse_log_entry ->
     _features_from_log.
     """
-    from project_name.monitoring import _features_from_log, _parse_log_entry
+    from scipali.monitoring.monitoring import _features_from_log, _parse_log_entry
 
     with (
-        patch("project_name.api._module", new=object()),
-        patch("project_name.api.predict_single", return_value="A"),
+        patch("scipali.serving.api._module", new=object()),
+        patch("scipali.serving.api.predict_single", return_value="A"),
     ):
         with TestClient(app) as client:
             client.post(
@@ -169,8 +171,8 @@ def test_predict_emits_parseable_single_line_event(capsys) -> None:
 def test_predict_with_hint_and_lecture() -> None:
     """Predict endpoint correctly forwards hint and lecture when provided."""
     with (
-        patch("project_name.api._module", new=object()),
-        patch("project_name.api.predict_single", return_value="B") as mock_predict,
+        patch("scipali.serving.api._module", new=object()),
+        patch("scipali.serving.api.predict_single", return_value="B") as mock_predict,
     ):
         with TestClient(app) as client:
             client.post(
@@ -192,8 +194,8 @@ def test_predict_with_hint_and_lecture() -> None:
 def test_predict_without_hint_and_lecture() -> None:
     """Predict endpoint does not forward hint or lecture when both are empty."""
     with (
-        patch("project_name.api._module", new=object()),
-        patch("project_name.api.predict_single", return_value="A") as mock_predict,
+        patch("scipali.serving.api._module", new=object()),
+        patch("scipali.serving.api.predict_single", return_value="A") as mock_predict,
     ):
         with TestClient(app) as client:
             client.post(
@@ -211,7 +213,7 @@ def test_predict_without_hint_and_lecture() -> None:
 
 def test_predict_invalid_image_returns_400() -> None:
     """Predict endpoint returns 400 when image_b64 cannot be decoded."""
-    with patch("project_name.api._module", new=object()):
+    with patch("scipali.serving.api._module", new=object()):
         with TestClient(app) as client:
             response = client.post(
                 "/predict",
@@ -245,7 +247,7 @@ def test_monitor_drift_runs_evidently() -> None:
     cur = pd.DataFrame(
         {"question_char_len": [9, 12, 10, 14] * 5, "num_choices": [4] * 20}
     )
-    with patch("project_name.api._read_gcs_csv", side_effect=[ref, cur]):
+    with patch("scipali.serving.api._read_gcs_csv", side_effect=[ref, cur]):
         with TestClient(app) as client:
             response = client.get("/monitor/drift")
     assert response.status_code == 200
@@ -261,7 +263,7 @@ def test_monitor_drift_runs_evidently() -> None:
 def test_monitor_drift_handles_failure() -> None:
     """Drift endpoint returns 500 when the source read fails."""
     pytest.importorskip("evidently")
-    with patch("project_name.api._read_gcs_csv", side_effect=RuntimeError("no gcs")):
+    with patch("scipali.serving.api._read_gcs_csv", side_effect=RuntimeError("no gcs")):
         with TestClient(app) as client:
             response = client.get("/monitor/drift")
     assert response.status_code == 500
@@ -274,10 +276,10 @@ class TestResolveCurrent:
         """An explicit current_gcs is read directly and reported as the source."""
         import pandas as pd
 
-        from project_name import api
+        from scipali.serving import api
 
         with patch(
-            "project_name.api._read_gcs_csv", return_value=pd.DataFrame({"x": [1]})
+            "scipali.serving.api._read_gcs_csv", return_value=pd.DataFrame({"x": [1]})
         ) as mock_read:
             df, source = api._resolve_current("gs://b/explicit.csv")
         assert source == "gs://b/explicit.csv"
@@ -288,10 +290,11 @@ class TestResolveCurrent:
         """With no override, a non-empty production table is used."""
         import pandas as pd
 
-        from project_name import api
+        from scipali.serving import api
 
         with patch(
-            "project_name.api._read_gcs_csv", return_value=pd.DataFrame({"x": [1, 2]})
+            "scipali.serving.api._read_gcs_csv",
+            return_value=pd.DataFrame({"x": [1, 2]}),
         ):
             _, source = api._resolve_current(None)
         assert source == api.PRODUCTION_GCS
@@ -300,14 +303,14 @@ class TestResolveCurrent:
         """A missing/erroring production table falls back to the demo sample."""
         import pandas as pd
 
-        from project_name import api
+        from scipali.serving import api
 
         def fake(uri: str):
             if uri == api.PRODUCTION_GCS:
                 raise FileNotFoundError("no production data yet")
             return pd.DataFrame({"x": [1]})
 
-        with patch("project_name.api._read_gcs_csv", side_effect=fake):
+        with patch("scipali.serving.api._read_gcs_csv", side_effect=fake):
             _, source = api._resolve_current(None)
         assert source == api.CURRENT_SAMPLE_GCS
 
@@ -315,13 +318,13 @@ class TestResolveCurrent:
         """An empty production table also falls back to the demo sample."""
         import pandas as pd
 
-        from project_name import api
+        from scipali.serving import api
 
         def fake(uri: str):
             if uri == api.PRODUCTION_GCS:
                 return pd.DataFrame({"x": []})
             return pd.DataFrame({"x": [1]})
 
-        with patch("project_name.api._read_gcs_csv", side_effect=fake):
+        with patch("scipali.serving.api._read_gcs_csv", side_effect=fake):
             _, source = api._resolve_current(None)
         assert source == api.CURRENT_SAMPLE_GCS

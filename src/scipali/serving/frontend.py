@@ -11,7 +11,7 @@ than the FastAPI API does, so they can't share one venv):
 
     API_URL=http://localhost:8000 \\
       uvx --with requests --with pillow \\
-      streamlit run src/project_name/frontend.py
+      streamlit run src/scipali/serving/frontend.py
 """
 
 import base64

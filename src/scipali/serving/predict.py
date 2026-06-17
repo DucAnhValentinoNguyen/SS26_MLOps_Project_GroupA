@@ -9,7 +9,7 @@ import typer
 from PIL import Image
 from rich.logging import RichHandler
 
-from project_name.model import PaliGemmaModule, build_prompt, extract_answer_letter
+from scipali.models.model import PaliGemmaModule, build_prompt, extract_answer_letter
 
 logging.basicConfig(
     level=logging.INFO,
@@ -177,7 +177,7 @@ def predict(
     provided, matching the columns retained during preprocessing.
 
     Example:
-        python -m project_name.predict checkpoints/best.ckpt
+        python -m scipali.serving.predict checkpoints/best.ckpt
             --question "What gas do plants absorb during photosynthesis?" \\
             --choices "oxygen,carbon dioxide,nitrogen" \\
             --image data/sample.png \\

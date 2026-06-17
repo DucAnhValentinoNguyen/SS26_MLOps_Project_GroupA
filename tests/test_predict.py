@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 from pathlib import Path
 import torch
 from typer.testing import CliRunner
-from project_name.predict import app, load_checkpoint, predict_single
+from scipali.serving.predict import app, load_checkpoint, predict_single
 from PIL import Image
 
 runner = CliRunner()
@@ -15,13 +15,13 @@ def test_load_checkpoint_auto_selects_cpu() -> None:
     """load_checkpoint selects CPU when no accelerator is available."""
     fake_module = MagicMock()
     with (
-        patch("project_name.predict.torch.cuda.is_available", return_value=False),
+        patch("scipali.serving.predict.torch.cuda.is_available", return_value=False),
         patch(
-            "project_name.predict.torch.backends.mps.is_available",
+            "scipali.serving.predict.torch.backends.mps.is_available",
             return_value=False,
         ),
         patch(
-            "project_name.predict.PaliGemmaModule.load_from_checkpoint",
+            "scipali.serving.predict.PaliGemmaModule.load_from_checkpoint",
             return_value=fake_module,
         ) as mock_load,
     ):
@@ -37,12 +37,12 @@ def test_load_checkpoint_auto_selects_cpu() -> None:
 
 def test_load_model_honors_predict_device_env(monkeypatch) -> None:
     """PREDICT_DEVICE env forces the device when none is passed explicitly."""
-    from project_name.predict import load_model
+    from scipali.serving.predict import load_model
 
     monkeypatch.setenv("PREDICT_DEVICE", "cpu")
     fake_module = MagicMock()
     with patch(
-        "project_name.predict.load_checkpoint", return_value=fake_module
+        "scipali.serving.predict.load_checkpoint", return_value=fake_module
     ) as mock_load:
         load_model(Path("fake.ckpt"))
 
@@ -54,9 +54,9 @@ def test_load_checkpoint_prefers_cuda() -> None:
     """load_checkpoint prefers CUDA when available."""
     fake_module = MagicMock()
     with (
-        patch("project_name.predict.torch.cuda.is_available", return_value=True),
+        patch("scipali.serving.predict.torch.cuda.is_available", return_value=True),
         patch(
-            "project_name.predict.PaliGemmaModule.load_from_checkpoint",
+            "scipali.serving.predict.PaliGemmaModule.load_from_checkpoint",
             return_value=fake_module,
         ) as mock_load,
     ):
@@ -77,7 +77,7 @@ def test_predict_single_returns_decoded_letter() -> None:
     fake_module.processor.decode.return_value = "a"
 
     with patch(
-        "project_name.predict.build_prompt", return_value="prompt text"
+        "scipali.serving.predict.build_prompt", return_value="prompt text"
     ) as mock_build:
         result = predict_single(
             fake_module,
@@ -104,7 +104,7 @@ def test_predict_single_normalises_repeated_letter() -> None:
     # Greedy decoding repeated the answer token; the API must still return "A".
     fake_module.processor.decode.return_value = "AA"
 
-    with patch("project_name.predict.build_prompt", return_value="prompt text"):
+    with patch("scipali.serving.predict.build_prompt", return_value="prompt text"):
         result = predict_single(
             fake_module,
             image=fake_image,
@@ -125,7 +125,7 @@ def test_predict_single_forwards_prompt_kwargs() -> None:
     fake_module.processor.decode.return_value = "B"
 
     with patch(
-        "project_name.predict.build_prompt", return_value="prompt"
+        "scipali.serving.predict.build_prompt", return_value="prompt"
     ) as mock_build:
         predict_single(
             fake_module,
@@ -144,9 +144,11 @@ def test_predict_single_forwards_prompt_kwargs() -> None:
 def test_cli_forwards_only_provided_optional_fields() -> None:
     """CLI builds prompt_kwargs only from non-empty hint/lecture."""
     with (
-        patch("project_name.predict.load_checkpoint") as mock_load,
-        patch("project_name.predict.predict_single", return_value="A") as mock_predict,
-        patch("project_name.predict.Image.open"),
+        patch("scipali.serving.predict.load_checkpoint") as mock_load,
+        patch(
+            "scipali.serving.predict.predict_single", return_value="A"
+        ) as mock_predict,
+        patch("scipali.serving.predict.Image.open"),
     ):
         result = runner.invoke(
             app,
@@ -176,7 +178,7 @@ def test_cli_forwards_only_provided_optional_fields() -> None:
 
 def test_cli_rejects_missing_image() -> None:
     """CLI exits with error when no image is provided."""
-    with patch("project_name.predict.load_checkpoint"):
+    with patch("scipali.serving.predict.load_checkpoint"):
         result = runner.invoke(
             app,
             ["fake.ckpt", "--question", "Q?", "--choices", "A,B,C"],

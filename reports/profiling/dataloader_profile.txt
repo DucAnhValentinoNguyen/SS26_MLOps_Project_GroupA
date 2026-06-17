@@ -9,8 +9,8 @@
       200    0.001    0.000    2.285    0.011 /Users/yuxinliu/.venvs/mlops/lib/python3.11/site-packages/torch/utils/data/dataloader.py:703(__next__)
       200    0.002    0.000    2.265    0.011 /Users/yuxinliu/.venvs/mlops/lib/python3.11/site-packages/torch/utils/data/dataloader.py:762(_next_data)
       200    0.000    0.000    2.263    0.011 /Users/yuxinliu/.venvs/mlops/lib/python3.11/site-packages/torch/utils/data/_utils/fetch.py:47(fetch)
-      200    0.001    0.000    1.137    0.006 /Users/yuxinliu/Desktop/M2/MLops/src/project_name/data.py:413(_collate_train)
-      200    0.011    0.000    1.137    0.006 /Users/yuxinliu/Desktop/M2/MLops/src/project_name/data.py:332(_collate)
+      200    0.001    0.000    1.137    0.006 /Users/yuxinliu/Desktop/M2/MLops/src/scipali/data/data.py:413(_collate_train)
+      200    0.011    0.000    1.137    0.006 /Users/yuxinliu/Desktop/M2/MLops/src/scipali/data/data.py:332(_collate)
       200    0.000    0.000    1.125    0.006 /Users/yuxinliu/.venvs/mlops/lib/python3.11/site-packages/datasets/arrow_dataset.py:3159(__getitems__)
       200    0.002    0.000    1.123    0.006 /Users/yuxinliu/.venvs/mlops/lib/python3.11/site-packages/datasets/arrow_dataset.py:3152(__getitem__)
       200    0.001    0.000    1.122    0.006 /Users/yuxinliu/.venvs/mlops/lib/python3.11/site-packages/datasets/arrow_dataset.py:3124(_getitem)
@@ -50,7 +50,7 @@
       200    0.018    0.000    0.019    0.000 /Users/yuxinliu/.venvs/mlops/lib/python3.11/site-packages/datasets/formatting/formatting.py:149(extract_batch)
       200    0.013    0.000    0.013    0.000 {method 'to' of 'torch._C.TensorBase' objects}
       200    0.011    0.000    0.011    0.000 {built-in method torch._ops.profiler._record_function_enter_new}
-      200    0.011    0.000    1.137    0.006 /Users/yuxinliu/Desktop/M2/MLops/src/project_name/data.py:332(_collate)
+      200    0.011    0.000    1.137    0.006 /Users/yuxinliu/Desktop/M2/MLops/src/scipali/data/data.py:332(_collate)
       200    0.009    0.000    0.009    0.000 {method 'sub' of 'torch._C.TensorBase' objects}
    139384    0.009    0.000    0.011    0.000 {built-in method builtins.isinstance}
       200    0.009    0.000    0.009    0.000 {method 'div_' of 'torch._C.TensorBase' objects}

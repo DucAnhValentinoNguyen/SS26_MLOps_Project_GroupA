@@ -1,7 +1,7 @@
 // For format details, see https://aka.ms/devcontainer.json. For config options, see the
 // README at: https://github.com/devcontainers/templates/tree/main/src/python
 {
-    "name": "project_name",
+    "name": "scipali",
     // Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
     "image": "mcr.microsoft.com/devcontainers/python:3.11.0-bullseye",
     "features": {},
@@ -17,8 +17,8 @@
                 "python.testing.pytestArgs": ["tests"],
                 "python.testing.unittestEnabled": false,
                 "python.testing.pytestEnabled": true,
-                "python.defaultInterpreterPath": "/workspaces/project_name/.venv/bin/python",
-                "python.testing.pytestPath": "/workspaces/project_name/.venv/bin/pytest"
+                "python.defaultInterpreterPath": "${containerWorkspaceFolder}/.venv/bin/python",
+                "python.testing.pytestPath": "${containerWorkspaceFolder}/.venv/bin/pytest"
             }
         }
     }

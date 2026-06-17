@@ -32,7 +32,7 @@ The serving API runs on Cloud Run (CPU, scale-to-zero):
 curl https://paligemma-api-581237630637.europe-west4.run.app/
 ```
 
-A Streamlit frontend (`project_name.frontend`) provides a UI over `/predict`.
+A Streamlit frontend (`scipali.serving.frontend`) provides a UI over `/predict`.
 
 See [Architecture](architecture.md) for how the pieces fit together and
 [Usage](usage.md) for how to run each stage.

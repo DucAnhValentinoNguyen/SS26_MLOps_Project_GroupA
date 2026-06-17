@@ -9,9 +9,9 @@ from rich.logging import RichHandler
 from rich.table import Table
 from rich import print as rprint
 
-from project_name.data import DataModule, PROCESSED_DATA_DIR, DATASET_SUBSET
-from project_name.model import extract_answer_letter
-from project_name.predict import load_model
+from scipali.data.data import DataModule, PROCESSED_DATA_DIR, DATASET_SUBSET
+from scipali.models.model import extract_answer_letter
+from scipali.serving.predict import load_model
 
 logging.basicConfig(
     level=logging.INFO,

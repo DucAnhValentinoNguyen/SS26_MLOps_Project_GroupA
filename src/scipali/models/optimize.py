@@ -26,8 +26,8 @@ from peft import PeftModel
 from rich.logging import RichHandler
 from transformers import AutoProcessor, PaliGemmaForConditionalGeneration
 
-from project_name.data import DATASET_SUBSET, PROCESSED_DATA_DIR, DataModule
-from project_name.model import MODEL_NAME
+from scipali.data.data import DATASET_SUBSET, PROCESSED_DATA_DIR, DataModule
+from scipali.models.model import MODEL_NAME
 
 logging.basicConfig(level=logging.INFO, format="%(message)s", handlers=[RichHandler()])
 log = logging.getLogger(__name__)

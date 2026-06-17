@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import torch
 
-from project_name.model import (
+from scipali.models.model import (
     build_prompt,
     extract_answer_letter,
     PaliGemmaModule,
@@ -149,11 +149,11 @@ def module() -> PaliGemmaModule:
 
     with (
         patch(
-            "project_name.model.PaliGemmaForConditionalGeneration.from_pretrained",
+            "scipali.models.model.PaliGemmaForConditionalGeneration.from_pretrained",
             return_value=mock_model,
         ),
         patch(
-            "project_name.model.AutoProcessor.from_pretrained",
+            "scipali.models.model.AutoProcessor.from_pretrained",
             return_value=mock_processor,
         ),
     ):
@@ -260,11 +260,11 @@ class TestPaliGemmaModuleInit:
         mock_processor = _make_mock_processor()
         with (
             patch(
-                "project_name.model.PaliGemmaForConditionalGeneration.from_pretrained",
+                "scipali.models.model.PaliGemmaForConditionalGeneration.from_pretrained",
                 return_value=mock_model,
             ),
             patch(
-                "project_name.model.AutoProcessor.from_pretrained",
+                "scipali.models.model.AutoProcessor.from_pretrained",
                 return_value=mock_processor,
             ),
         ):
@@ -285,11 +285,11 @@ class TestPaliGemmaModuleInit:
         mock_processor = _make_mock_processor()
         with (
             patch(
-                "project_name.model.PaliGemmaForConditionalGeneration.from_pretrained",
+                "scipali.models.model.PaliGemmaForConditionalGeneration.from_pretrained",
                 return_value=mock_model,
             ),
             patch(
-                "project_name.model.AutoProcessor.from_pretrained",
+                "scipali.models.model.AutoProcessor.from_pretrained",
                 return_value=mock_processor,
             ),
         ):

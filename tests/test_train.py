@@ -5,7 +5,7 @@ import math
 import pytest
 from omegaconf import DictConfig, OmegaConf
 
-from project_name.train import resolve_learning_rate
+from scipali.models.train import resolve_learning_rate
 
 
 def _make_cfg(

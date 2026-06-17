@@ -1,1 +1,1 @@
-"""Tests for the project_name package."""
+"""Tests for the scipali package."""

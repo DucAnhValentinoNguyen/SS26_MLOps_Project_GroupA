@@ -20,4 +20,4 @@ RUN uv sync --frozen --no-dev --group monitoring
 ENV PORT=8000
 EXPOSE 8000
 
-ENTRYPOINT ["sh", "-c", "uv run --no-sync uvicorn project_name.api:app --host 0.0.0.0 --port ${PORT:-8000}"]
+ENTRYPOINT ["sh", "-c", "uv run --no-sync uvicorn scipali.serving.api:app --host 0.0.0.0 --port ${PORT:-8000}"]

@@ -43,14 +43,14 @@ print(f"downloaded {n} files")
 PY
 
 echo ">>> benchmarking (bf16 / int4 / bf16+compile)"
-python -m project_name.optimize "${ADAPTER_DIR}" --output-path optimize_results.json
+python -m scipali.models.optimize "${ADAPTER_DIR}" --output-path optimize_results.json
 
 if [ -n "${AIP_MODEL_DIR:-}" ]; then
   python - <<'PY'
 import os
 from pathlib import Path
 
-from project_name.train import upload_to_gcs
+from scipali.models.train import upload_to_gcs
 
 print("uploaded", upload_to_gcs(Path("optimize_results.json"), os.environ["AIP_MODEL_DIR"]))
 PY
