@@ -30,7 +30,10 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 CHECKPOINT_DIR = Path("checkpoints")
-_CONFIGS_DIR = str(Path(__file__).parent.parent.parent / "configs")
+# configs/ is at the repo root; train.py is src/scipali/models/train.py, so go up
+# 4 levels: models -> scipali -> src -> repo root (parents[3]). NOTE: keep this in
+# sync with the package depth — the rename to scipali/models/ once broke this.
+_CONFIGS_DIR = str(Path(__file__).resolve().parents[3] / "configs")
 # Number of test samples logged as a W&B prediction artifact.
 N_PREDICTION_SAMPLES = 32
 
