@@ -145,7 +145,11 @@ create_job() {
   #                    when empty — required after a metric/range change)
   export SKIP_BASELINE="${SKIP_BASELINE:-0}" SWEEP_ID="${SWEEP_ID:-}" \
     ADAPTER_GCS="${ADAPTER_GCS:-}" SWEEP_COUNT="${SWEEP_COUNT:-8}"
-  envsubst '${IMAGE_URI} ${SKIP_BASELINE} ${SWEEP_ID} ${ADAPTER_GCS} ${SWEEP_COUNT}' \
+  # prune-sweep (optimize job) knobs; default to a full sweep. Harmless for the
+  # train/eval templates — they carry no PRUNE_* placeholders to substitute.
+  export PRUNE_SPARSITIES="${PRUNE_SPARSITIES:-0.0,0.3,0.5,0.7}" \
+    PRUNE_N_BATCHES="${PRUNE_N_BATCHES:-0}"
+  envsubst '${IMAGE_URI} ${SKIP_BASELINE} ${SWEEP_ID} ${ADAPTER_GCS} ${SWEEP_COUNT} ${PRUNE_SPARSITIES} ${PRUNE_N_BATCHES}' \
     < "${TEMPLATE}" > "${RENDERED}"
   if [ -z "${SWEEP_ID}" ]; then
     # Vertex rejects env entries with an empty value ("Required field is not

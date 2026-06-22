@@ -70,6 +70,85 @@ def plot_accuracy_by_subject(
     return out_path
 
 
+def plot_accuracy_by_topic(
+    results_path: Path,
+    processed_data_dir: Path = PROCESSED_DATA_DIR,
+    output_dir: Path = RESULTS_DIR,
+    split: str = "test",
+    min_samples: int = 20,
+) -> Path:
+    """Plot per-topic accuracy as a horizontal bar chart.
+
+    The eval JSON records ``subject`` but not ``topic``, so topic is recovered
+    by joining each sample's ``index`` (its row in the unshuffled split) back to
+    the processed dataset — no re-evaluation needed. Topics with fewer than
+    ``min_samples`` test rows are excluded, because per-topic accuracy on a
+    handful of samples is noise (several ScienceQA topics have <10 test rows);
+    each bar is annotated with its sample count so reliability stays visible.
+
+    Args:
+        results_path: Path to the evaluate.py JSON results file.
+        processed_data_dir: Root directory of the processed dataset.
+        output_dir: Directory where the figure is saved.
+        split: Dataset split the eval indices refer to (default: "test").
+        min_samples: Minimum test samples for a topic to be plotted.
+
+    Returns:
+        Path to the saved figure.
+    """
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    with results_path.open() as f:
+        results = json.load(f)
+
+    topics = load_from_disk(str(processed_data_dir))[split]["topic"]
+
+    topic_counts: dict[str, list[int]] = {}
+    for item in results["samples"]:
+        idx = item.get("index")
+        if idx is None or idx >= len(topics):
+            continue
+        bucket = topic_counts.setdefault(topics[idx], [0, 0])
+        bucket[0] += int(item["correct"])
+        bucket[1] += 1
+
+    # Statistical honesty: drop topics too small for a meaningful accuracy.
+    kept = {t: c for t, c in topic_counts.items() if c[1] >= min_samples}
+    dropped = sorted(
+        ((t, c[1]) for t, c in topic_counts.items() if c[1] < min_samples),
+        key=lambda x: x[1],
+    )
+    if dropped:
+        log.info(
+            "Excluded %d topic(s) with <%d samples (too few to be reliable): %s",
+            len(dropped),
+            min_samples,
+            ", ".join(f"{t} (n={n})" for t, n in dropped),
+        )
+    if not kept:
+        log.warning("No topic has >= %d samples — nothing to plot.", min_samples)
+        return output_dir / "accuracy_by_topic.png"
+
+    items = sorted(kept.items(), key=lambda kv: kv[1][0] / kv[1][1])
+    names = [t for t, _ in items]
+    accuracies = [c[0] / c[1] * 100 for _, c in items]
+    labels = [f"{c[0] / c[1] * 100:.1f}%  (n={c[1]})" for _, c in items]
+
+    fig, ax = plt.subplots(figsize=(9, max(3, len(names) * 0.5)))
+    bars = ax.barh(names, accuracies, color="mediumseagreen")
+    ax.bar_label(bars, labels=labels, padding=4, fontsize=8)
+    ax.set_xlabel("Accuracy (%)")
+    ax.set_title(f"Per-Topic Accuracy ({split}, topics with ≥{min_samples} samples)")
+    ax.set_xlim(0, 125)
+    fig.tight_layout()
+
+    out_path = output_dir / "accuracy_by_topic.png"
+    fig.savefig(out_path, dpi=300)
+    plt.close(fig)
+    log.info("Saved accuracy by topic plot to %s (%d topics)", out_path, len(names))
+    return out_path
+
+
 def plot_error_samples(
     results_path: Path,
     processed_data_dir: Path = PROCESSED_DATA_DIR,
@@ -276,6 +355,23 @@ def subject_accuracy(
 ) -> None:
     """Plot per-subject accuracy from an evaluate.py results file."""
     out = plot_accuracy_by_subject(results_path, output_dir)
+    typer.echo(f"Saved to {out}")
+
+
+@app.command()
+def topic_accuracy(
+    results_path: Path = typer.Argument(
+        ..., help="Path to the evaluate.py JSON results."
+    ),
+    data_dir: Path = typer.Option(PROCESSED_DATA_DIR, "--data-dir"),
+    output_dir: Path = typer.Option(RESULTS_DIR, "--output-dir", "-o"),
+    split: str = typer.Option("test", "--split", "-s"),
+    min_samples: int = typer.Option(
+        20, "--min-samples", help="Min test samples for a topic to be plotted."
+    ),
+) -> None:
+    """Plot per-topic accuracy (low-sample topics excluded)."""
+    out = plot_accuracy_by_topic(results_path, data_dir, output_dir, split, min_samples)
     typer.echo(f"Saved to {out}")
 
 

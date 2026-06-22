@@ -8,9 +8,9 @@ source-dir = "src"
 [project]
 name = "scipali"
 version = "0.0.1"
-description = "a short description"
+description = "LoRA fine-tuning of PaliGemma2-3B for image-grounded ScienceQA multiple-choice question answering, with an end-to-end MLOps pipeline."
 authors = [
-  { name = "Yuxin_Duc", email = "your@email.com" },
+  { name = "Yuxin Liu", email = "Liu.Yuxin@campus.lmu.de" },
 ]
 license = { file = "LICENSE" }
 keywords = ["machine learning", "MLOps"]

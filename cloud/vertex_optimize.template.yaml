@@ -19,6 +19,10 @@ workerPoolSpecs:
       env:
         - name: ADAPTER_GCS
           value: "${ADAPTER_GCS}"
+        - name: PRUNE_SPARSITIES
+          value: "${PRUNE_SPARSITIES}"
+        - name: PRUNE_N_BATCHES
+          value: "${PRUNE_N_BATCHES}"
         - name: GCP_PROJECT
           value: paligemma-scienceqa
         - name: WANDB_SECRET_NAME

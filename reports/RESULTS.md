@@ -40,6 +40,12 @@ same 2017-sample test set, with the gains in the image-heavy subjects (natural
 +7.6, social +9.1). 80%+ would need higher resolution (448) / unfreezing the
 vision encoder / chain-of-thought — not attempted here.
 
+By topic (`accuracy_by_topic.png`, topics with ≥20 test samples), the
+per-subject view masks a wide *within-subject* spread: in natural science,
+biology (74.7%) and physics (68.7%) far outrun **chemistry (48.9%) and
+earth-science (54.5%)** — the genuine weak spots, and clearer improvement
+targets than the subject average.
+
 The deployed adapter is now `sandy-sweep-7` at
 `gs://mlops-paligemma-west4/models/production/` (W&B `:production`, v16).
 
@@ -222,7 +228,8 @@ Quantization benchmark (bf16 vs int4 vs bf16+compile) on an L4 via
 
 | File | Shows |
 |---|---|
-| `accuracy_by_subject.png` | deployed model (`vague-sweep-3`) per-subject accuracy |
+| `accuracy_by_subject.png` | deployed `sandy-sweep-7` per-subject accuracy (social 85.3% / natural 64.8% / language 45.5%) |
+| `accuracy_by_topic.png` | deployed `sandy-sweep-7` per-topic accuracy (≥20-sample topics, `n` annotated) — weak spots: chemistry 48.9%, earth-science 54.5% |
 | `sweep3_comparison.png` | **full-data r=16 sweep (`win9arpw`)**: per-trial val/accuracy + the val/loss↔val/accuracy disagreement (winner `autumn-sweep-2` → test 71.3%) |
 | `sweep2_comparison.png` | earlier sweep (`xptwdnis`, old data r=8) — same chart for the 64% era |
 | `prediction_length_dist.png` | predicted answer length (sanity: single letters) |

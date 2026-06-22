@@ -1,5 +1,9 @@
 # scipali
 
+[![Unit Tests](https://github.com/yuxinliu42/SS26_MLOps_Project_GroupA/actions/workflows/tests.yaml/badge.svg)](https://github.com/yuxinliu42/SS26_MLOps_Project_GroupA/actions/workflows/tests.yaml)
+[![Code linting](https://github.com/yuxinliu42/SS26_MLOps_Project_GroupA/actions/workflows/linting.yaml/badge.svg)](https://github.com/yuxinliu42/SS26_MLOps_Project_GroupA/actions/workflows/linting.yaml)
+[![codecov](https://codecov.io/gh/yuxinliu42/SS26_MLOps_Project_GroupA/graph/badge.svg)](https://codecov.io/gh/yuxinliu42/SS26_MLOps_Project_GroupA)
+
 PaliGemma2-3B fine-tuned (LoRA) on ScienceQA-IMG, wrapped in a full MLOps
 pipeline — DVC data versioning, Hydra configs, W&B sweeps, Vertex AI training,
 Cloud Run serving, drift monitoring, and CI/CD. Headline: **72.19%** exact-match

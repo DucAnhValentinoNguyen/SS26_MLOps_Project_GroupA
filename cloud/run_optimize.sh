@@ -43,7 +43,13 @@ print(f"downloaded {n} files")
 PY
 
 echo ">>> benchmarking (bf16 / int4 / bf16+compile)"
-python -m scipali.models.optimize "${ADAPTER_DIR}" --output-path optimize_results.json
+python -m scipali.models.optimize benchmark "${ADAPTER_DIR}" --output-path optimize_results.json
+
+echo ">>> pruning ablation (sparsity vs accuracy)"
+python -m scipali.models.optimize prune-sweep "${ADAPTER_DIR}" \
+  --sparsities "${PRUNE_SPARSITIES:-0.0,0.3,0.5,0.7}" \
+  --n-batches "${PRUNE_N_BATCHES:-0}" \
+  --output-path prune_results.json
 
 if [ -n "${AIP_MODEL_DIR:-}" ]; then
   python - <<'PY'
@@ -52,6 +58,7 @@ from pathlib import Path
 
 from scipali.models.train import upload_to_gcs
 
-print("uploaded", upload_to_gcs(Path("optimize_results.json"), os.environ["AIP_MODEL_DIR"]))
+for fname in ("optimize_results.json", "prune_results.json"):
+    print("uploaded", upload_to_gcs(Path(fname), os.environ["AIP_MODEL_DIR"]))
 PY
 fi

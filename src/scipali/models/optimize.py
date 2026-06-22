@@ -1,18 +1,21 @@
-"""Inference optimization benchmark: quantization + compilation.
+"""Inference optimization benchmarks for the fine-tuned model.
 
-Loads the fine-tuned adapter in a few configurations and measures load time,
+Two Typer commands, both run on a CUDA GPU (4-bit needs bitsandbytes/CUDA), on
+Vertex via ``cloud/run_optimize.sh``. Results saved as JSON.
+
+``benchmark`` loads the adapter in a few configurations and measures load time,
 peak GPU memory, and per-generate latency on a fixed set of test samples:
 
 - ``bf16``            : the serving default.
 - ``int4``           : 4-bit weights via bitsandbytes (QLoRA-style) — CUDA only.
 - ``bf16+compile``   : ``torch.compile`` of the bf16 model.
 
-Pruning is intentionally skipped: unstructured pruning a LoRA-adapted model
-gives no inference speedup without sparse kernels, so it isn't worth the report
-space.
-
-Runs on a CUDA GPU (4-bit needs bitsandbytes/CUDA). On Vertex via
-``cloud/run_optimize.sh``. Results saved as JSON.
+``prune-sweep`` merges the LoRA adapter into the base, then global
+magnitude-prunes the Linear weights to several sparsity levels and measures
+test accuracy at each. Latency is reported too, but it stays flat by design:
+unstructured pruning only zeros weights, so the dense kernels still do the full
+matmul — there is no speedup without sparse kernels. The deliverable is the
+accuracy-vs-sparsity curve, not a latency win.
 """
 
 import json
@@ -24,10 +27,11 @@ import torch
 import typer
 from peft import PeftModel
 from rich.logging import RichHandler
+from torch.nn.utils import prune
 from transformers import AutoProcessor, PaliGemmaForConditionalGeneration
 
 from scipali.data.data import DATASET_SUBSET, PROCESSED_DATA_DIR, DataModule
-from scipali.models.model import MODEL_NAME
+from scipali.models.model import MODEL_NAME, extract_answer_letter
 
 logging.basicConfig(level=logging.INFO, format="%(message)s", handlers=[RichHandler()])
 log = logging.getLogger(__name__)
@@ -68,6 +72,62 @@ def _load(adapter_dir: Path, mode: str):
         model = torch.compile(model)  # type: ignore[assignment]
     model.eval()
     return model, time.time() - t
+
+
+def prune_linear_layers(model: torch.nn.Module, amount: float) -> float:
+    """Global L1-unstructured prune of every ``nn.Linear`` weight to ``amount``.
+
+    Bakes the mask in with ``prune.remove`` so the weights are plain dense
+    tensors with zeros (this is exactly why pruning buys no speedup without
+    sparse kernels). Returns the achieved sparsity, i.e. the fraction of zero
+    weights across the pruned layers. ``amount == 0`` is a no-op.
+    """
+    linears = [(m, "weight") for m in model.modules() if isinstance(m, torch.nn.Linear)]
+    if amount > 0:
+        prune.global_unstructured(
+            linears, pruning_method=prune.L1Unstructured, amount=amount
+        )
+        for module, name in linears:
+            prune.remove(module, name)  # drop the reparam; keep the zeroed weight
+    total = sum(m.weight.numel() for m, _ in linears)
+    zeros = sum(int((m.weight == 0).sum()) for m, _ in linears)
+    return zeros / total if total else 0.0
+
+
+def _load_merged(adapter_dir: Path):
+    """Load base+adapter in bf16, merge LoRA into the base, return a CUDA model."""
+    base = PaliGemmaForConditionalGeneration.from_pretrained(
+        MODEL_NAME, torch_dtype=torch.bfloat16
+    )
+    model = PeftModel.from_pretrained(base, str(adapter_dir)).merge_and_unload()
+    return model.to("cuda").eval()
+
+
+def _score_accuracy(model, processor, loader, n_batches: int) -> tuple[int, int]:
+    """Accuracy over up to ``n_batches`` (0 = all); returns (correct, total).
+
+    Mirrors evaluate.py: generate, decode the continuation, and compare the
+    extracted choice letter against the dataset's ``answer_texts``.
+    """
+    correct = total = 0
+    for batch_idx, batch in enumerate(loader):
+        if n_batches and batch_idx >= n_batches:
+            break
+        input_ids = batch["input_ids"].to("cuda")
+        generated_ids = model.generate(
+            input_ids=input_ids,
+            attention_mask=batch["attention_mask"].to("cuda"),
+            pixel_values=batch["pixel_values"].to("cuda", torch.bfloat16),
+            max_new_tokens=10,
+            do_sample=False,
+        )
+        preds = processor.batch_decode(
+            generated_ids[:, input_ids.shape[1] :], skip_special_tokens=True
+        )
+        for pred, target in zip(preds, batch["answer_texts"]):
+            correct += int(extract_answer_letter(pred) == extract_answer_letter(target))
+            total += 1
+    return correct, total
 
 
 @app.command()
@@ -118,6 +178,86 @@ def benchmark(
         json.dumps({"n_samples": n_samples, "results": results}, indent=2)
     )
     log.info("Saved benchmark to %s", output_path)
+
+
+@app.command()
+def prune_sweep(
+    adapter_dir: Path = typer.Argument(..., help="LoRA adapter directory."),
+    sparsities: str = typer.Option(
+        "0.0,0.3,0.5,0.7", help="Comma-separated target sparsity levels."
+    ),
+    n_batches: int = typer.Option(
+        0, help="Test batches scored per level (0 = whole test split)."
+    ),
+    batch_size: int = typer.Option(8, help="Eval/latency batch size."),
+    iters: int = typer.Option(5, help="Timed generate iterations for latency."),
+    output_path: Path = typer.Option(Path("prune_results.json")),
+) -> None:
+    """Prune the merged model to each sparsity and measure accuracy + latency.
+
+    Accuracy is the headline (pruning degrades the adapter, which was trained on
+    the un-pruned base); latency is reported only to confirm it does not drop.
+    """
+    if not torch.cuda.is_available():
+        typer.echo("CUDA required (bf16 generate + meaningful latency).", err=True)
+        raise typer.Exit(code=1)
+
+    levels = [float(s) for s in sparsities.split(",") if s.strip()]
+    processor = AutoProcessor.from_pretrained(str(adapter_dir))
+    data = DataModule(
+        processed_dir=PROCESSED_DATA_DIR,
+        subset=DATASET_SUBSET,
+        processor=processor,
+        batch_size=batch_size,
+        num_workers=2,
+    )
+    data.setup()
+
+    results = []
+    for amount in levels:
+        torch.cuda.empty_cache()
+        torch.cuda.reset_peak_memory_stats()
+        # Reload + re-merge each level: prune.remove is destructive, so every
+        # sparsity must start from the clean baseline weights.
+        model = _load_merged(adapter_dir)
+        achieved = prune_linear_layers(model, amount)
+
+        with torch.inference_mode():
+            correct, total = _score_accuracy(
+                model, processor, data.test_dataloader(), n_batches
+            )
+            batch = next(iter(data.test_dataloader()))
+            gen_kwargs = dict(
+                input_ids=batch["input_ids"].to("cuda"),
+                attention_mask=batch["attention_mask"].to("cuda"),
+                pixel_values=batch["pixel_values"].to("cuda", torch.bfloat16),
+                max_new_tokens=10,
+                do_sample=False,
+            )
+            model.generate(**gen_kwargs)  # warmup
+            t = time.time()
+            for _ in range(iters):
+                model.generate(**gen_kwargs)
+            latency = (time.time() - t) / iters
+
+        peak_gb = torch.cuda.max_memory_allocated() / 1e9
+        row = {
+            "sparsity_requested": amount,
+            "sparsity_achieved": round(achieved, 4),
+            "accuracy": round(correct / total, 4) if total else 0.0,
+            "correct": correct,
+            "total": total,
+            "latency_s_per_batch": round(latency, 3),
+            "peak_gpu_gb": round(peak_gb, 2),
+        }
+        results.append(row)
+        log.info("%s", row)
+        del model
+
+    output_path.write_text(
+        json.dumps({"batch_size": batch_size, "results": results}, indent=2)
+    )
+    log.info("Saved pruning sweep to %s", output_path)
 
 
 if __name__ == "__main__":

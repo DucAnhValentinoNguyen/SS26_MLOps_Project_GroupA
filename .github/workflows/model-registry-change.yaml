@@ -15,9 +15,11 @@ name: Model registry change
 #    headers  Accept: application/vnd.github+json
 #             Authorization: Bearer <GitHub PAT with 'repo' scope>   (a W&B secret)
 #    body     {"event_type": "model-registry-updated"}
-# 2. Repo secret GCP_SA_KEY = a service-account key JSON with run.admin +
-#    iam.serviceAccountUser (to roll a new Cloud Run revision). Workload Identity
-#    Federation is the more secure alternative to a long-lived key.
+# 2. Keyless GCP auth via Workload Identity Federation (the org enforces
+#    iam.disableServiceAccountKeyCreation, so no SA key is possible). One-time
+#    setup creates a github-pool + github-provider and lets ONLY this repo
+#    impersonate the gh-deployer SA (granted run.admin + iam.serviceAccountUser).
+#    See the gcloud block in the project docs / README.
 on:
   repository_dispatch:
     types: [model-registry-updated]
@@ -25,22 +27,24 @@ on:
 
 permissions:
   contents: read
+  id-token: write  # required for keyless Workload Identity Federation (OIDC)
 
 env:
   GCP_PROJECT: paligemma-scienceqa
   REGION: europe-west4
   SERVICE: paligemma-api
-  API_URL: https://paligemma-api-581237630637.europe-west4.run.app
 
 jobs:
   rollout-and-verify:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Authenticate to GCP
+      - name: Authenticate to GCP (keyless — Workload Identity Federation)
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          project_id: paligemma-scienceqa
+          workload_identity_provider: projects/581237630637/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: gh-deployer@paligemma-scienceqa.iam.gserviceaccount.com
 
       - name: Set up gcloud
         uses: google-github-actions/setup-gcloud@v2
@@ -55,6 +59,12 @@ jobs:
 
       - name: Smoke-test the production endpoint
         run: |
+          # Resolve the live URL from Cloud Run rather than hardcoding — the
+          # canonical service URL can differ from the deterministic
+          # project-number form.
+          API_URL=$(gcloud run services describe "$SERVICE" \
+            --region="$REGION" --project="$GCP_PROJECT" --format='value(status.url)')
+          echo "Service URL: $API_URL"
           echo "Health:"; curl -fsS --max-time 60 "$API_URL/"; echo
           PNG="iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
           BODY=$(printf '{"question":"smoke test","choices":["A","B"],"image_b64":"%s"}' "$PNG")
