@@ -8,8 +8,28 @@
 #                base model; W&B unused here)
 set -euo pipefail
 
+# Unbuffer Python stdout/stderr: otherwise a hard crash (e.g. an OOM kill) loses
+# all of the step's block-buffered logs, leaving no traceback in Cloud Logging.
+export PYTHONUNBUFFERED=1
+
 : "${ADAPTER_GCS:?set ADAPTER_GCS to the gs:// adapter directory}"
 source "$(dirname "$0")/fetch_secrets.sh"
+
+# Upload one result file to GCS now (if running on Vertex and the file exists),
+# so a later step crashing can't discard results an earlier step already wrote.
+upload_result() {
+  local f="$1"
+  [ -n "${AIP_MODEL_DIR:-}" ] || return 0
+  [ -f "${f}" ] || { echo ">>> ${f} not produced — skipping upload"; return 0; }
+  RESULT_FILE="${f}" python - <<'PY'
+import os
+from pathlib import Path
+
+from scipali.models.train import upload_to_gcs
+
+print("uploaded", upload_to_gcs(Path(os.environ["RESULT_FILE"]), os.environ["AIP_MODEL_DIR"]))
+PY
+}
 
 echo ">>> fetching DVC-tracked data"
 dvc pull -v data/processed/ScienceQA-IMG.dvc
@@ -44,21 +64,15 @@ PY
 
 echo ">>> benchmarking (bf16 / int4 / bf16+compile)"
 python -m scipali.models.optimize benchmark "${ADAPTER_DIR}" --output-path optimize_results.json
+upload_result optimize_results.json   # bank these before prune-sweep can crash
 
 echo ">>> pruning ablation (sparsity vs accuracy)"
+prune_rc=0
 python -m scipali.models.optimize prune-sweep "${ADAPTER_DIR}" \
   --sparsities "${PRUNE_SPARSITIES:-0.0,0.3,0.5,0.7}" \
   --n-batches "${PRUNE_N_BATCHES:-0}" \
-  --output-path prune_results.json
+  --output-path prune_results.json || prune_rc=$?
 
-if [ -n "${AIP_MODEL_DIR:-}" ]; then
-  python - <<'PY'
-import os
-from pathlib import Path
+upload_result prune_results.json      # upload whatever it produced before the run script exits
 
-from scipali.models.train import upload_to_gcs
-
-for fname in ("optimize_results.json", "prune_results.json"):
-    print("uploaded", upload_to_gcs(Path(fname), os.environ["AIP_MODEL_DIR"]))
-PY
-fi
+exit "${prune_rc}"                    # still surface a prune-sweep failure to Vertex

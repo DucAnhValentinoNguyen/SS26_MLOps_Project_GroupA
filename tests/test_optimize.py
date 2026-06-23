@@ -30,7 +30,7 @@ def _linears(model: torch.nn.Module) -> list[torch.nn.Linear]:
 
 
 def test_prune_reaches_target_sparsity() -> None:
-    """Global pruning zeros ~`amount` of the Linear weights and bakes it in."""
+    """Per-layer pruning zeros ~`amount` of the Linear weights and bakes it in."""
     model = _TinyNet()
     achieved = prune_linear_layers(model, amount=0.5)
     assert abs(achieved - 0.5) < 0.01

@@ -10,9 +10,9 @@ peak GPU memory, and per-generate latency on a fixed set of test samples:
 - ``int4``           : 4-bit weights via bitsandbytes (QLoRA-style) — CUDA only.
 - ``bf16+compile``   : ``torch.compile`` of the bf16 model.
 
-``prune-sweep`` merges the LoRA adapter into the base, then global
-magnitude-prunes the Linear weights to several sparsity levels and measures
-test accuracy at each. Latency is reported too, but it stays flat by design:
+``prune-sweep`` merges the LoRA adapter into the base, then magnitude-prunes the
+Linear weights (per layer) to several sparsity levels and measures test accuracy
+at each. Latency is reported too, but it stays flat by design:
 unstructured pruning only zeros weights, so the dense kernels still do the full
 matmul — there is no speedup without sparse kernels. The deliverable is the
 accuracy-vs-sparsity curve, not a latency win.
@@ -75,7 +75,12 @@ def _load(adapter_dir: Path, mode: str):
 
 
 def prune_linear_layers(model: torch.nn.Module, amount: float) -> float:
-    """Global L1-unstructured prune of every ``nn.Linear`` weight to ``amount``.
+    """Per-layer L1-unstructured prune of every ``nn.Linear`` weight to ``amount``.
+
+    Each Linear is pruned to ``amount`` independently. A single global
+    ``prune.global_unstructured`` pass instead concatenates every weight and runs
+    one top-k whose int64 indices alone are ~10GB on a 3B model — that OOMs the
+    24GB L4. Pruning per layer keeps peak scratch to a single layer's worth.
 
     Bakes the mask in with ``prune.remove`` so the weights are plain dense
     tensors with zeros (this is exactly why pruning buys no speedup without
@@ -84,10 +89,8 @@ def prune_linear_layers(model: torch.nn.Module, amount: float) -> float:
     """
     linears = [(m, "weight") for m in model.modules() if isinstance(m, torch.nn.Linear)]
     if amount > 0:
-        prune.global_unstructured(
-            linears, pruning_method=prune.L1Unstructured, amount=amount
-        )
         for module, name in linears:
+            prune.l1_unstructured(module, name, amount=amount)
             prune.remove(module, name)  # drop the reparam; keep the zeroed weight
     total = sum(m.weight.numel() for m, _ in linears)
     zeros = sum(int((m.weight == 0).sum()) for m, _ in linears)
