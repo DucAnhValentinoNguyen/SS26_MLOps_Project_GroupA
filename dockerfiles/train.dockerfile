@@ -5,6 +5,8 @@ WORKDIR /workspace
 COPY uv.lock uv.lock
 COPY pyproject.toml pyproject.toml
 
+# Install scipali's DEPENDENCIES only (--no-install-project); the project itself
+# is installed from a prebuilt wheel below.
 # --no-dev: training needs base + dvc only, not test/docs/lint tooling.
 # --group data: provides the dvc[gs] CLI (build-time `dvc config` + `dvc pull`).
 RUN uv sync --frozen --no-install-project --no-dev --group data
@@ -19,10 +21,19 @@ COPY data data/
 COPY entrypoint.sh entrypoint.sh
 COPY README.md README.md
 COPY LICENSE LICENSE
+COPY wheelhouse/ wheelhouse/
 
 RUN mkdir -p models
 
-RUN uv sync --frozen --no-dev --group data
+# Install scipali from a PREBUILT wheel (built outside the image with `uv build`
+# and shipped in wheelhouse/). Building the project IN-image with `uv sync`
+# dropped its subpackages -- only the top-level `scipali` survived, so
+# `python -m scipali.models.optimize` failed at runtime with
+# `ModuleNotFoundError: No module named 'scipali.models'` (a uv build behaviour
+# from the moving base image; pinning uv did not fix it). The locally-built
+# wheel is verified to contain every subpackage. Deps are installed above, so
+# install the wheel with --no-deps.
+RUN uv pip install --no-deps --reinstall wheelhouse/*.whl
 RUN uv pip install --no-cache-dir --reinstall torch==2.6.0 torchvision==0.21.0 \
       --index-url https://download.pytorch.org/whl/cu118
 
