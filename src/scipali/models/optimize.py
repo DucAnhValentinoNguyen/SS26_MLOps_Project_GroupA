@@ -18,6 +18,7 @@ matmul — there is no speedup without sparse kernels. The deliverable is the
 accuracy-vs-sparsity curve, not a latency win.
 """
 
+import gc
 import json
 import logging
 import time
@@ -116,9 +117,15 @@ def prune_linear_layers(model: torch.nn.Module, amount: float) -> float:
 
 
 def _load_merged(adapter_dir: Path):
-    """Load base+adapter in bf16, merge LoRA into the base, return a CUDA model."""
+    """Load base+adapter in bf16, merge LoRA into the base, return a CUDA model.
+
+    ``low_cpu_mem_usage`` keeps the CPU load peak to ~1x the model size (it
+    streams weights in instead of allocating a second full copy for the state
+    dict) -- the sweep reloads this once per sparsity level, so without it the
+    host RAM climbs and the job hits "Replicas low on memory".
+    """
     base = PaliGemmaForConditionalGeneration.from_pretrained(
-        MODEL_NAME, torch_dtype=torch.bfloat16
+        MODEL_NAME, torch_dtype=torch.bfloat16, low_cpu_mem_usage=True
     )
     model = PeftModel.from_pretrained(base, str(adapter_dir)).merge_and_unload()
     return model.to("cuda").eval()
@@ -274,6 +281,7 @@ def prune_sweep(
         results.append(row)
         log.info("%s", row)
         del model
+        gc.collect()  # free the CPU copy before the next level reloads the base
 
     output_path.write_text(
         json.dumps({"batch_size": batch_size, "results": results}, indent=2)

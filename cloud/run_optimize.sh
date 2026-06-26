@@ -62,9 +62,17 @@ for blob in client.list_blobs(parsed.netloc, prefix=prefix):
 print(f"downloaded {n} files")
 PY
 
-echo ">>> benchmarking (bf16 / int4 / bf16+compile)"
-python -m scipali.models.optimize benchmark "${ADAPTER_DIR}" --output-path optimize_results.json
-upload_result optimize_results.json   # bank these before prune-sweep can crash
+# The benchmark loads three model variants (incl. torch.compile) and is a heavy,
+# separate concern from pruning. SKIP_BENCHMARK=1 runs prune-sweep only — used
+# once the benchmark table is already saved, and to keep host RAM low so the
+# prune sweep does not hit "Replicas low on memory".
+if [ "${SKIP_BENCHMARK:-0}" = "1" ]; then
+  echo ">>> SKIP_BENCHMARK=1 — skipping benchmark (table already saved), prune-sweep only"
+else
+  echo ">>> benchmarking (bf16 / int4 / bf16+compile)"
+  python -m scipali.models.optimize benchmark "${ADAPTER_DIR}" --output-path optimize_results.json
+  upload_result optimize_results.json   # bank these before prune-sweep can crash
+fi
 
 echo ">>> pruning ablation (sparsity vs accuracy)"
 prune_rc=0

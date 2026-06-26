@@ -6,7 +6,7 @@
 #   bash cloud/watch_job.sh
 workerPoolSpecs:
   - machineSpec:
-      machineType: g2-standard-8
+      machineType: g2-standard-12   # 48GB RAM (was g2-standard-8/32GB): prune-sweep reloads the merged 3B model per level + pools weights for the global threshold -> 32GB OOM'd ("Replicas low on memory")
       acceleratorType: NVIDIA_L4
       acceleratorCount: 1
     replicaCount: 1
@@ -23,6 +23,8 @@ workerPoolSpecs:
           value: "${PRUNE_SPARSITIES}"
         - name: PRUNE_N_BATCHES
           value: "${PRUNE_N_BATCHES}"
+        - name: SKIP_BENCHMARK
+          value: "${SKIP_BENCHMARK}"
         - name: GCP_PROJECT
           value: paligemma-scienceqa
         - name: WANDB_SECRET_NAME
