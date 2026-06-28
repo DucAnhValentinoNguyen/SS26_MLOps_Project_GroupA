@@ -62,6 +62,22 @@ for blob in client.list_blobs(parsed.netloc, prefix=prefix):
 print(f"downloaded {n} files")
 PY
 
+# RUN_FINETUNE=1 short-circuits to the prune + masked-finetune experiment: prune
+# to FINETUNE_SPARSITY, then fine-tune the surviving weights to recover accuracy.
+# Skips the benchmark and the prune-sweep (separate deliverables).
+if [ "${RUN_FINETUNE:-0}" = "1" ]; then
+  echo ">>> prune + masked fine-tune (sparsity ${FINETUNE_SPARSITY:-0.5}, ${FINETUNE_STEPS:-300} steps)"
+  finetune_rc=0
+  python -m scipali.models.optimize prune-finetune "${ADAPTER_DIR}" \
+    --sparsity "${FINETUNE_SPARSITY:-0.5}" \
+    --steps "${FINETUNE_STEPS:-300}" \
+    --batch-size "${FINETUNE_BATCH_SIZE:-1}" \
+    --eval-batches "${FINETUNE_EVAL_BATCHES:-0}" \
+    --output-path prune_finetune_results.json || finetune_rc=$?
+  upload_result prune_finetune_results.json
+  exit "${finetune_rc}"
+fi
+
 # The benchmark loads three model variants (incl. torch.compile) and is a heavy,
 # separate concern from pruning. SKIP_BENCHMARK=1 runs prune-sweep only — used
 # once the benchmark table is already saved, and to keep host RAM low so the

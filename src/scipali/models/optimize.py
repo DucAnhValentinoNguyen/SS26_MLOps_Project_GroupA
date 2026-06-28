@@ -21,6 +21,7 @@ accuracy-vs-sparsity curve, not a latency win.
 import gc
 import json
 import logging
+import resource
 import time
 from pathlib import Path
 
@@ -79,35 +80,49 @@ def prune_linear_layers(model: torch.nn.Module, amount: float) -> float:
     """Global L1-unstructured prune of every ``nn.Linear`` weight to ``amount``.
 
     Uses a single global magnitude threshold across all Linear weights (so the
-    sparsity budget is allocated adaptively, like ``prune.global_unstructured``),
-    but finds the cutoff with ``torch.kthvalue`` on a pooled CPU copy of the
-    ``|weights|``. kthvalue returns just the scalar threshold, avoiding the
-    ~10GB int64 top-k *index* tensor that OOMs the 24GB L4 on a 3B model (the
-    boolean masks below are ~1 byte/elem, which is cheap). Each layer is masked
-    with ``|w| > threshold`` and baked in with ``prune.remove``.
+    sparsity budget is allocated adaptively, like ``prune.global_unstructured``).
+    The threshold is found from a fine HISTOGRAM of ``|w|`` rather than by pooling
+    every weight: pooling all ~3B weights into a float32 buffer (plus the kthvalue
+    selection workspace) peaked ~49GB of host RAM and forced a 64GB machine. The
+    histogram is O(bins) memory and only ever holds one layer's ``|w|`` at a time,
+    so the sweep fits a 32GB host. Each layer is masked with ``|w| > threshold``
+    and the mask is baked into a dense zeroed weight (``prune.remove``).
+    (``prune-finetune`` keeps these zeros frozen during training by masking the
+    gradient -- see ``_mask_pruned_grads`` -- not a live ``prune`` reparametrization,
+    which would ~triple weight memory and OOM the L4.)
 
-    Returns the ACHIEVED sparsity (fraction with ``|w| <= threshold``). With a
-    smooth magnitude distribution this matches ``amount`` to well within 1%; the
-    only deviation is weights tied exactly at the threshold, which can nudge it
-    up by at most the size of that one magnitude bin. The sweep records this
-    achieved value, so the curve is plotted against real sparsity. ``amount == 0``
-    is a no-op.
+    Returns the ACHIEVED sparsity (fraction with ``|w| <= threshold``), computed
+    exactly from the zeroed weights -- the histogram's bin width only perturbs the
+    threshold by ``max|w| / bins``, so achieved tracks ``amount`` to well within
+    1%. The sweep records this achieved value, so the curve is plotted against
+    real sparsity. ``amount == 0`` is a no-op.
     """
     linears = [(m, "weight") for m in model.modules() if isinstance(m, torch.nn.Linear)]
     total = sum(m.weight.numel() for m, _ in linears)
-    if amount > 0:
-        # Pool |weights| into one preallocated CPU float32 buffer (so we never
-        # hold two ~10GB copies at once) and take the global magnitude cutoff.
-        pooled = torch.empty(total, dtype=torch.float32)
-        offset = 0
+    # hi == 0 only for an all-zero model (nothing meaningful to prune; the achieved
+    # calc below already reports it as fully sparse).
+    hi = max((m.weight.detach().abs().max().item() for m, _ in linears), default=0.0)
+    if amount > 0 and hi > 0:
+        # Global magnitude cutoff via a histogram of |w| (O(bins) memory): sum
+        # per-layer histograms, freeing each layer's |w| copy before the next --
+        # no multi-GB pool, no kthvalue workspace, so peak host RAM stays at
+        # ~one layer's worth.
+        #
+        # Counts are EXACT int64: torch.histc returns float32, which rounds bin
+        # counts above 2**24 (~16.7M) -- a bf16 magnitude spike can exceed that and
+        # skew the threshold. Bucketize + bincount (int64) avoids that entirely.
+        bins = 1_000_000
+        hist = torch.zeros(bins, dtype=torch.int64)
         for module, _ in linears:
-            n = module.weight.numel()
-            pooled[offset : offset + n] = (
-                module.weight.detach().abs().float().flatten().cpu()
-            )
-            offset += n
-        threshold = pooled.kthvalue(int(amount * total)).values.item()
-        del pooled
+            w = module.weight.detach().abs().float().flatten()
+            idx = torch.clamp((w / hi * bins).long(), max=bins - 1)
+            hist += torch.bincount(idx, minlength=bins).cpu()
+            del w, idx
+        # Smallest bin whose cumulative count reaches k -> prune |w| <= its edge.
+        k = int(amount * total)
+        cumulative = torch.cumsum(hist, dim=0)  # int64 -> exact, no overflow at 3B
+        cutoff_bin = int(torch.searchsorted(cumulative, torch.tensor(k)).item())
+        threshold = (cutoff_bin + 1) / bins * hi  # right edge of the cutoff bin
         for module, name in linears:
             mask = (module.weight.detach().abs() > threshold).to(module.weight.dtype)
             prune.custom_from_mask(module, name, mask)  # 1 = keep, 0 = prune
@@ -116,16 +131,33 @@ def prune_linear_layers(model: torch.nn.Module, amount: float) -> float:
     return zeros / total if total else 0.0
 
 
-def _load_merged(adapter_dir: Path):
-    """Load base+adapter in bf16, merge LoRA into the base, return a CUDA model.
+def _log_rss(tag: str) -> None:
+    """Log peak process RSS so host-RAM OOM points are visible in the job logs.
 
-    ``low_cpu_mem_usage`` keeps the CPU load peak to ~1x the model size (it
-    streams weights in instead of allocating a second full copy for the state
-    dict) -- the sweep reloads this once per sparsity level, so without it the
-    host RAM climbs and the job hits "Replicas low on memory".
+    ``ru_maxrss`` is in KB on Linux (the training image), so /1e6 gives GB.
     """
+    kb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    log.info("[mem] %s: peak RSS = %.2f GB", tag, kb / 1e6)
+
+
+def _mask_pruned_grads(model: torch.nn.Module) -> None:
+    """Zero the gradient at pruned (zero) Linear weights so the model stays sparse.
+
+    This is the memory-lean alternative to a live ``prune`` reparametrization
+    (``bake_mask=False``), which keeps weight_orig + weight_mask + the computed
+    weight (~3x weight memory) and OOMs the 24GB L4. Here the weights are dense
+    (already zeroed) and only their *gradients* are masked, via a backward hook.
+    Frozen params get no gradient, so only trainable Linears need it.
+    """
+    for module in model.modules():
+        if isinstance(module, torch.nn.Linear) and module.weight.requires_grad:
+            module.weight.register_hook(lambda grad, w=module.weight: grad * (w != 0))
+
+
+def _load_merged(adapter_dir: Path):
+    """Load base+adapter in bf16, merge LoRA into the base, return a CUDA model."""
     base = PaliGemmaForConditionalGeneration.from_pretrained(
-        MODEL_NAME, torch_dtype=torch.bfloat16, low_cpu_mem_usage=True
+        MODEL_NAME, torch_dtype=torch.bfloat16
     )
     model = PeftModel.from_pretrained(base, str(adapter_dir)).merge_and_unload()
     return model.to("cuda").eval()
@@ -237,9 +269,11 @@ def prune_sweep(
         subset=DATASET_SUBSET,
         processor=processor,
         batch_size=batch_size,
-        num_workers=2,
+        num_workers=0,  # avoid forking DataLoader workers once the model is on
+        # CUDA -- forking a CUDA-initialised process can balloon host RAM.
     )
     data.setup()
+    _log_rss("after dataset setup")
 
     results = []
     for amount in levels:
@@ -248,12 +282,15 @@ def prune_sweep(
         # Reload + re-merge each level: prune.remove is destructive, so every
         # sparsity must start from the clean baseline weights.
         model = _load_merged(adapter_dir)
+        _log_rss(f"sparsity={amount} after load_merged")
         achieved = prune_linear_layers(model, amount)
+        _log_rss(f"sparsity={amount} after prune ({achieved:.3f})")
 
         with torch.inference_mode():
             correct, total = _score_accuracy(
                 model, processor, data.test_dataloader(), n_batches
             )
+            _log_rss(f"sparsity={amount} after score")
             batch = next(iter(data.test_dataloader()))
             gen_kwargs = dict(
                 input_ids=batch["input_ids"].to("cuda"),
@@ -287,6 +324,133 @@ def prune_sweep(
         json.dumps({"batch_size": batch_size, "results": results}, indent=2)
     )
     log.info("Saved pruning sweep to %s", output_path)
+
+
+@app.command()
+def prune_finetune(
+    adapter_dir: Path = typer.Argument(..., help="LoRA adapter directory."),
+    sparsity: float = typer.Option(0.5, help="Target sparsity to prune to."),
+    steps: int = typer.Option(300, help="Fine-tuning optimizer steps."),
+    batch_size: int = typer.Option(
+        1, help="Train/eval batch size (raise if VRAM allows)."
+    ),
+    lr: float = typer.Option(1e-5, help="AdamW learning rate."),
+    eval_batches: int = typer.Option(
+        0, help="Test batches scored for accuracy (0 = all)."
+    ),
+    output_path: Path = typer.Option(Path("prune_finetune_results.json")),
+) -> None:
+    """Prune to ``sparsity``, then masked-fine-tune to recover accuracy.
+
+    One-shot pruning degrades accuracy sharply; this re-trains the *surviving*
+    weights to recover it. The prune mask is kept LIVE (``weight = weight_orig *
+    mask`` via ``bake_mask=False``), so the zeroed weights receive no gradient and
+    stay zero -- the model remains sparse throughout. The vision tower is frozen
+    and only the language model is fine-tuned (8-bit AdamW + gradient
+    checkpointing) to fit the 24GB L4. Reports test accuracy before (one-shot) and
+    after fine-tuning -- the recovery is the headline.
+    """
+    if not torch.cuda.is_available():
+        typer.echo("CUDA required (fine-tuning + generation).", err=True)
+        raise typer.Exit(code=1)
+    import bitsandbytes as bnb  # 8-bit AdamW; installed at runtime (run_optimize.sh)
+
+    processor = AutoProcessor.from_pretrained(str(adapter_dir))
+    data = DataModule(
+        processed_dir=PROCESSED_DATA_DIR,
+        subset=DATASET_SUBSET,
+        processor=processor,
+        batch_size=batch_size,
+        num_workers=0,
+    )
+    data.setup()
+
+    # Prune into DENSE zeroed weights (bake_mask=True). The live reparametrization
+    # (bake_mask=False) keeps weight_orig + weight_mask + the computed weight per
+    # layer -- ~3x the weight memory, which OOM'd the 24GB L4. We instead mask the
+    # GRADIENTS below, so pruned weights never re-grow with no extra weight copies.
+    model = _load_merged(adapter_dir)
+    achieved = prune_linear_layers(model, sparsity, bake_mask=True)
+    _log_rss(f"after prune (sparsity {achieved:.3f})")
+
+    # One-shot accuracy (pre-fine-tune) -- the baseline this run tries to recover.
+    model.eval()
+    with torch.inference_mode():
+        c0, t0 = _score_accuracy(model, processor, data.test_dataloader(), eval_batches)
+    oneshot = c0 / t0 if t0 else 0.0
+    log.info(
+        "one-shot accuracy @ sparsity %.3f: %.4f (%d/%d)", achieved, oneshot, c0, t0
+    )
+
+    # Freeze the vision tower; fine-tune only the language model (less VRAM, and
+    # that's where the task capacity is). Gradient checkpointing trades compute
+    # for memory so the 3B model + optimizer fit the L4.
+    for param in model.model.vision_tower.parameters():
+        param.requires_grad = False
+    # Keep the model sparse during training: zero the gradient at pruned weights.
+    _mask_pruned_grads(model)
+    model.gradient_checkpointing_enable(
+        gradient_checkpointing_kwargs={"use_reentrant": False}
+    )
+    model.enable_input_require_grads()
+    model.train()
+    optimizer = bnb.optim.AdamW8bit(
+        [p for p in model.parameters() if p.requires_grad], lr=lr
+    )
+
+    keys = ("input_ids", "attention_mask", "pixel_values", "token_type_ids", "labels")
+    step = 0
+    log.info("fine-tuning: %d steps, batch_size=%d, lr=%.1e", steps, batch_size, lr)
+    while step < steps:
+        for batch in data.train_dataloader():
+            if step >= steps:
+                break
+            inputs = {}
+            for key in keys:
+                value = batch.get(key)
+                if torch.is_tensor(value):
+                    value = value.to("cuda")
+                    inputs[key] = (
+                        value.to(torch.bfloat16) if key == "pixel_values" else value
+                    )
+            optimizer.zero_grad(set_to_none=True)
+            loss = model(**inputs).loss
+            loss.backward()
+            optimizer.step()
+            step += 1
+            if step == 1 or step % 20 == 0:
+                gpu_gb = torch.cuda.max_memory_allocated() / 1e9
+                log.info(
+                    "step %d/%d  loss=%.4f  peak_gpu=%.1fGB",
+                    step,
+                    steps,
+                    loss.item(),
+                    gpu_gb,
+                )
+                _log_rss(f"step {step}")
+
+    # Post-fine-tune accuracy (mask still live -> the model is still sparse).
+    model.eval()
+    with torch.inference_mode():
+        c1, t1 = _score_accuracy(model, processor, data.test_dataloader(), eval_batches)
+    finetuned = c1 / t1 if t1 else 0.0
+    log.info(
+        "fine-tuned accuracy @ sparsity %.3f: %.4f (%d/%d)", achieved, finetuned, c1, t1
+    )
+
+    result = {
+        "sparsity_requested": sparsity,
+        "sparsity_achieved": round(achieved, 4),
+        "steps": steps,
+        "batch_size": batch_size,
+        "lr": lr,
+        "accuracy_oneshot": round(oneshot, 4),
+        "accuracy_finetuned": round(finetuned, 4),
+        "recovery_points": round((finetuned - oneshot) * 100, 2),
+        "total": t1,
+    }
+    output_path.write_text(json.dumps(result, indent=2))
+    log.info("Saved prune-finetune result to %s: %s", output_path, result)
 
 
 if __name__ == "__main__":

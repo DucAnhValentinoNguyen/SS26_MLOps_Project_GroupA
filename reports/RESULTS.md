@@ -214,12 +214,41 @@ Quantization benchmark (bf16 vs int4 vs bf16+compile) on an L4 via
   later modes reused the warm cache, so `load (s)` is not comparable across
   modes — latency and peak memory are the meaningful metrics.
 
+### Weight pruning — accuracy vs. sparsity
+
+Global L1-unstructured magnitude pruning of the merged model's `nn.Linear`
+weights, swept over four sparsity levels on the **full 2,017-sample test split**
+(`cloud/run_optimize.sh` with `SKIP_BENCHMARK=1`, job `6309659488739655680`,
+`reports/eval/prune_results.json`):
+
+| sparsity (target → achieved) | accuracy | correct/total | latency (s/batch) |
+|---|---|---|---|
+| 0.0 → 0.000 | **71.79 %** | 1448 / 2017 | 0.639 |
+| 0.3 → 0.301 | 63.26 % | 1276 / 2017 | 0.638 |
+| 0.5 → 0.500 | 34.66 % | 699 / 2017 | 0.986 |
+| 0.7 → 0.701 | 4.41 % | 89 / 2017 | 0.977 |
+
+- **Accuracy degrades gracefully to ~30 % sparsity** (71.8 → 63.3 %, −8.5 pts),
+  then collapses — 50 % roughly halves it (34.7 %) and 70 % destroys the model
+  (4.4 %, *below* chance: the model stops emitting a valid answer letter). The
+  0 %-prune baseline (71.8 %) matches the deployed model's test accuracy,
+  confirming the merge-and-score path is faithful.
+- **A single global magnitude threshold** across all layers (computed with
+  `torch.kthvalue`, not the per-layer `amount`). The achieved sparsity lands
+  within 0.001 of target at every level, so the curve is plotted against real
+  sparsity.
+- **No latency benefit**: unstructured pruning only zeros weights, so the dense
+  GEMM kernels still do the full matmul — a speedup would need sparse
+  kernels/hardware. The *rise* at 50/70 % is the degraded model rambling to the
+  `max_new_tokens` cap instead of emitting an answer and stopping, not a pruning
+  cost. The deliverable is the accuracy/sparsity trade-off, not a latency win.
+
 ## Artifact layout (`reports/`)
 
 | Folder | Contents |
 |---|---|
 | `figures/` | `.png` visualizations (below) |
-| `eval/` | eval data: `production_eval_results.json`, `sweep2_summary.json`, `sweep3_summary.json`, `optimize_results.json` (M31) |
+| `eval/` | eval data: `production_eval_results.json`, `sweep2_summary.json`, `sweep3_summary.json`, `optimize_results.json` + `prune_results.json` (M31) |
 | `monitoring/` | `drift_report.html` (Evidently) |
 | `load/` | load-test summary + locust CSVs |
 | `profiling/` | `dataloader_profile.md` + cProfile (`.pstats`/`.txt`) + `dataloader_summary.json` |

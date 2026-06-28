@@ -1,0 +1,41 @@
+{
+  "batch_size": 8,
+  "results": [
+    {
+      "sparsity_requested": 0.0,
+      "sparsity_achieved": 0.0,
+      "accuracy": 0.7179,
+      "correct": 1448,
+      "total": 2017,
+      "latency_s_per_batch": 0.639,
+      "peak_gpu_gb": 11.41
+    },
+    {
+      "sparsity_requested": 0.3,
+      "sparsity_achieved": 0.3007,
+      "accuracy": 0.6326,
+      "correct": 1276,
+      "total": 2017,
+      "latency_s_per_batch": 0.638,
+      "peak_gpu_gb": 12.61
+    },
+    {
+      "sparsity_requested": 0.5,
+      "sparsity_achieved": 0.5005,
+      "accuracy": 0.3466,
+      "correct": 699,
+      "total": 2017,
+      "latency_s_per_batch": 0.986,
+      "peak_gpu_gb": 12.61
+    },
+    {
+      "sparsity_requested": 0.7,
+      "sparsity_achieved": 0.7011,
+      "accuracy": 0.0441,
+      "correct": 89,
+      "total": 2017,
+      "latency_s_per_batch": 0.977,
+      "peak_gpu_gb": 12.61
+    }
+  ]
+}
